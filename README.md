@@ -18,12 +18,20 @@ huggingface-cli download Qwen/Qwen2.5-Coder-7B-Instruct-GGUF --include "qwen2.5-
 brew install cmake
 ```
 ```text
-cmake -B build
+<!-- cmake -B build -->
+<!-- ```. -->
+
+<!-- ```text -->
+<!-- ./mvnw clean compile -->
 ```
 
-```text
-./mvnw clean compile
 ```
+  ```
+mvn compile  # don't forget this line
+cmake -B build # add any other arguments for your backend, e.g. -DGGML_CUDA=ON
+cmake --build build --config Release
+```
+
 
 Not starting the server
 ```text
