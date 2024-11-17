@@ -90,6 +90,12 @@ if(NOT JNI_INCLUDE_DIRS)
     message(FATAL_ERROR "Could not determine JNI include directories")
 endif()
 
+# Add JNI include paths
+include_directories(
+    "/Library/Java/JavaVirtualMachines/jdk-22.jdk/Contents/Home/include"
+    "/Library/Java/JavaVirtualMachines/jdk-22.jdk/Contents/Home/include/darwin"
+)
+
 add_library(jllama SHARED src/main/cpp/jllama.cpp src/main/cpp/server.hpp src/main/cpp/utils.hpp)
 
 set_target_properties(jllama PROPERTIES POSITION_INDEPENDENT_CODE ON)
