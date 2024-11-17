@@ -28,8 +28,17 @@
 	</scm>
 	<properties>
 		<java.version>22</java.version>
+    <jna.version>5.13.0</jna.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
 	<dependencies>
+  	<dependency>
+			<groupId>org.jetbrains</groupId>
+			<artifactId>annotations</artifactId>
+			<version>24.1.0</version>
+			<scope>compile</scope>
+		</dependency>
+
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter</artifactId>
@@ -53,6 +62,52 @@
 
 	<build>
 		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.13.0</version>
+				<executions>
+					<!-- We have to perform a separate build pass for cuda classifier -->
+					<execution>
+						<id>gpu</id>
+						<phase>compile</phase>
+						<goals><goal>compile</goal></goals>
+						<configuration>
+							<compilerArgs>
+								<arg>-h</arg>
+								<arg>src/main/cpp</arg>
+							</compilerArgs>
+							<outputDirectory>${project.build.outputDirectory}_cuda</outputDirectory>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+      <plugin>
+				<artifactId>maven-resources-plugin</artifactId>
+				<version>3.3.1</version>
+				<executions>
+					<!-- Copy custom cuda libs to the output directory -->
+					<execution>
+						<id>copy-resources</id>
+						<phase>process-classes</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${project.build.outputDirectory}_cuda</outputDirectory>
+							<resources>
+								<resource>
+									<directory>${basedir}/src/main/resources_linux_cuda/</directory>
+									<includes>
+										<include>**/*.*</include>
+									</includes>
+								</resource>
+							</resources>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
