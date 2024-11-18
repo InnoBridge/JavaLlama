@@ -501,7 +501,7 @@ public final class InferenceParameters extends JsonParameters {
     return this;
   }
 
-  InferenceParameters setStream(boolean stream) {
+  public InferenceParameters setStream(boolean stream) {
     parameters.put(PARAM_STREAM, String.valueOf(stream));
     return this;
   }
