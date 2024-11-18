@@ -1,6 +1,6 @@
-package io.github.innobridge.llama;
+package io.github.innobridge.llama.client;
 
-import io.github.innobridge.llama.args.LogFormat;
+import io.github.innobridge.llama.client.args.LogFormat;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.annotation.Native;

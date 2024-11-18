@@ -2528,7 +2528,7 @@ struct server_context {
 };
 
 // parse the given jparams (see
-// io.github.innobridge.llama.args.ModelParameters#toString()) from JSON to the
+// io.github.innobridge.llama.client.args.ModelParameters#toString()) from JSON to the
 // required C++ struct.
 static void server_params_parse(json jparams, gpt_params &params) {
   gpt_params default_params;
