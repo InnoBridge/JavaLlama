@@ -9,7 +9,7 @@ import java.util.NoSuchElementException;
  * addition to implementing {@link Iterator},
  * it allows to cancel ongoing inference (see {@link #cancel()}).
  */
-public final class LlamaIterator implements Iterator<LlamaOutput> {
+public final class LlamaIterator<T extends LlamaOutput> implements Iterator<T> {
 
   private final LlamaModel model;
   private final int taskId;
@@ -30,13 +30,13 @@ public final class LlamaIterator implements Iterator<LlamaOutput> {
   }
 
   @Override
-  public LlamaOutput next() {
+  public T next() {
     if (!hasNext) {
       throw new NoSuchElementException();
     }
     LlamaOutput output = model.receiveCompletion(taskId);
     hasNext = !output.stop;
-    return output;
+    return (T) output;
   }
 
   /**
