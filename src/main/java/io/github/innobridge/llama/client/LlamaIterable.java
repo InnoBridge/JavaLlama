@@ -7,10 +7,10 @@ import org.jetbrains.annotations.NotNull;
  * specifically returns a {@link LlamaIterator}.
  */
 @FunctionalInterface
-public interface LlamaIterable extends Iterable<LlamaOutput> {
+public interface LlamaIterable<T extends LlamaOutput> extends Iterable<T> {
 
   @NotNull
   @Override
-  LlamaIterator iterator();
+  LlamaIterator<T> iterator();
 
 }
