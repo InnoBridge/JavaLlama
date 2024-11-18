@@ -71,8 +71,12 @@ src/main/resources/**/*.so
 src/main/resources/**/*.dylib
 src/main/resources/**/*.dll
 src/main/resources/**/*.metal
+src/main/resources/**/*.gbnf
 src/test/resources/**/*.gbnf
 
 **/*.etag
 **/*.lastModified
 src/main/cpp/llama.cpp/
+
+# JNI Generated Headers
+**/io_github_innobridge_llama_client_*.h

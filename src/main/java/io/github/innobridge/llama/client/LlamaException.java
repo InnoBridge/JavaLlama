@@ -1,4 +1,4 @@
-package io.github.innobridge.llama;
+package io.github.innobridge.llama.client;
 
 class LlamaException extends RuntimeException {
 

@@ -1,11 +1,11 @@
-package io.github.innobridge.llama;
+package io.github.innobridge.llama.client;
 
 import java.util.Map;
 
-import io.github.innobridge.llama.args.GpuSplitMode;
-import io.github.innobridge.llama.args.NumaStrategy;
-import io.github.innobridge.llama.args.PoolingType;
-import io.github.innobridge.llama.args.RopeScalingType;
+import io.github.innobridge.llama.client.args.GpuSplitMode;
+import io.github.innobridge.llama.client.args.NumaStrategy;
+import io.github.innobridge.llama.client.args.PoolingType;
+import io.github.innobridge.llama.client.args.RopeScalingType;
 
 /***
  * Parameters used for initializing a {@link LlamaModel}.

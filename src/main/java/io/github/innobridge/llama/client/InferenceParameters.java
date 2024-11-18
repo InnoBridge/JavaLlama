@@ -1,10 +1,10 @@
-package io.github.innobridge.llama;
+package io.github.innobridge.llama.client;
 
 import java.util.Collection;
 import java.util.Map;
 
-import io.github.innobridge.llama.args.MiroStat;
-import io.github.innobridge.llama.args.Sampler;
+import io.github.innobridge.llama.client.args.MiroStat;
+import io.github.innobridge.llama.client.args.Sampler;
 
 /**
  * Parameters used throughout inference of a {@link LlamaModel}, e.g.,

@@ -1,4 +1,4 @@
-package io.github.innobridge.llama.args;
+package io.github.innobridge.llama.client.args;
 
 /**
  * The log output format (defaults to JSON for all server-based outputs).
