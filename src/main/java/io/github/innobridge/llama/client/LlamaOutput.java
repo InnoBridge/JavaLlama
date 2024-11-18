@@ -1,4 +1,4 @@
-package io.github.innobridge.llama;
+package io.github.innobridge.llama.client;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;

@@ -172,10 +172,10 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
   }
 
   // find classes
-  c_llama_model = env->FindClass("io/github/innobridge/llama/LlamaModel");
-  c_llama_iterator = env->FindClass("io/github/innobridge/llama/LlamaIterator");
+  c_llama_model = env->FindClass("io/github/innobridge/llama/client/LlamaModel");
+  c_llama_iterator = env->FindClass("io/github/innobridge/llama/client/LlamaIterator");
   c_standard_charsets = env->FindClass("java/nio/charset/StandardCharsets");
-  c_output = env->FindClass("io/github/innobridge/llama/LlamaOutput");
+  c_output = env->FindClass("io/github/innobridge/llama/client/LlamaOutput");
   c_string = env->FindClass("java/lang/String");
   c_hash_map = env->FindClass("java/util/HashMap");
   c_map = env->FindClass("java/util/Map");
@@ -185,9 +185,9 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
   c_integer = env->FindClass("java/lang/Integer");
   c_float = env->FindClass("java/lang/Float");
   c_biconsumer = env->FindClass("java/util/function/BiConsumer");
-  c_llama_error = env->FindClass("io/github/innobridge/llama/LlamaException");
-  c_log_level = env->FindClass("io/github/innobridge/llama/LogLevel");
-  c_log_format = env->FindClass("io/github/innobridge/llama/args/LogFormat");
+  c_llama_error = env->FindClass("io/github/innobridge/llama/client/LlamaException");
+  c_log_level = env->FindClass("io/github/innobridge/llama/client/LogLevel");
+  c_log_format = env->FindClass("io/github/innobridge/llama/client/args/LogFormat");
   c_error_oom = env->FindClass("java/lang/OutOfMemoryError");
 
   if (!(c_llama_model && c_llama_iterator && c_standard_charsets && c_output &&
@@ -256,17 +256,17 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
                                   "Ljava/nio/charset/Charset;");
   f_iter_has_next = env->GetFieldID(c_llama_iterator, "hasNext", "Z");
   f_log_level_debug = env->GetStaticFieldID(
-      c_log_level, "DEBUG", "Lio/github/innobridge/llama/LogLevel;");
+      c_log_level, "DEBUG", "Lio/github/innobridge/llama/client/LogLevel;");
   f_log_level_info = env->GetStaticFieldID(
-      c_log_level, "INFO", "Lio/github/innobridge/llama/LogLevel;");
+      c_log_level, "INFO", "Lio/github/innobridge/llama/client/LogLevel;");
   f_log_level_warn = env->GetStaticFieldID(
-      c_log_level, "WARN", "Lio/github/innobridge/llama/LogLevel;");
+      c_log_level, "WARN", "Lio/github/innobridge/llama/client/LogLevel;");
   f_log_level_error = env->GetStaticFieldID(
-      c_log_level, "ERROR", "Lio/github/innobridge/llama/LogLevel;");
+      c_log_level, "ERROR", "Lio/github/innobridge/llama/client/LogLevel;");
   f_log_format_json = env->GetStaticFieldID(
-      c_log_format, "JSON", "Lio/github/innobridge/llama/args/LogFormat;");
+      c_log_format, "JSON", "Lio/github/innobridge/llama/client/args/LogFormat;");
   f_log_format_text = env->GetStaticFieldID(
-      c_log_format, "TEXT", "Lio/github/innobridge/llama/args/LogFormat;");
+      c_log_format, "TEXT", "Lio/github/innobridge/llama/client/args/LogFormat;");
 
   if (!(f_model_pointer && f_task_id && f_utf_8 && f_iter_has_next &&
         f_log_level_debug && f_log_level_info && f_log_level_warn &&
@@ -361,7 +361,7 @@ JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *reserved) {
   llama_backend_free();
 }
 
-JNIEXPORT void JNICALL Java_io_github_innobridge_llama_LlamaModel_loadModel(
+JNIEXPORT void JNICALL Java_io_github_innobridge_llama_client_LlamaModel_loadModel(
     JNIEnv *env, jobject obj, jstring jparams) {
   gpt_params params;
 
@@ -478,7 +478,7 @@ JNIEXPORT void JNICALL Java_io_github_innobridge_llama_LlamaModel_loadModel(
 }
 
 JNIEXPORT jint JNICALL
-Java_io_github_innobridge_llama_LlamaModel_requestCompletion(JNIEnv *env,
+Java_io_github_innobridge_llama_client_LlamaModel_requestCompletion(JNIEnv *env,
                                                              jobject obj,
                                                              jstring jparams) {
   jlong server_handle = env->GetLongField(obj, f_model_pointer);
@@ -507,7 +507,7 @@ Java_io_github_innobridge_llama_LlamaModel_requestCompletion(JNIEnv *env,
 }
 
 JNIEXPORT jobject JNICALL
-Java_io_github_innobridge_llama_LlamaModel_receiveCompletion(JNIEnv *env,
+Java_io_github_innobridge_llama_client_LlamaModel_receiveCompletion(JNIEnv *env,
                                                              jobject obj,
                                                              jint id_task) {
   jlong server_handle = env->GetLongField(obj, f_model_pointer);
@@ -550,7 +550,7 @@ Java_io_github_innobridge_llama_LlamaModel_receiveCompletion(JNIEnv *env,
                         result.stop);
 }
 
-JNIEXPORT jfloatArray JNICALL Java_io_github_innobridge_llama_LlamaModel_embed(
+JNIEXPORT jfloatArray JNICALL Java_io_github_innobridge_llama_client_LlamaModel_embed(
     JNIEnv *env, jobject obj, jstring jprompt) {
   jlong server_handle = env->GetLongField(obj, f_model_pointer);
   auto *ctx_server = reinterpret_cast<server_context *>(
@@ -593,7 +593,7 @@ JNIEXPORT jfloatArray JNICALL Java_io_github_innobridge_llama_LlamaModel_embed(
   return j_embedding;
 }
 
-JNIEXPORT jintArray JNICALL Java_io_github_innobridge_llama_LlamaModel_encode(
+JNIEXPORT jintArray JNICALL Java_io_github_innobridge_llama_client_LlamaModel_encode(
     JNIEnv *env, jobject obj, jstring jprompt) {
   jlong server_handle = env->GetLongField(obj, f_model_pointer);
   auto *ctx_server = reinterpret_cast<server_context *>(
@@ -616,7 +616,7 @@ JNIEXPORT jintArray JNICALL Java_io_github_innobridge_llama_LlamaModel_encode(
 }
 
 JNIEXPORT jbyteArray JNICALL
-Java_io_github_innobridge_llama_LlamaModel_decodeBytes(JNIEnv *env, jobject obj,
+Java_io_github_innobridge_llama_client_LlamaModel_decodeBytes(JNIEnv *env, jobject obj,
                                                        jintArray java_tokens) {
   jlong server_handle = env->GetLongField(obj, f_model_pointer);
   auto *ctx_server = reinterpret_cast<server_context *>(
@@ -634,7 +634,7 @@ Java_io_github_innobridge_llama_LlamaModel_decodeBytes(JNIEnv *env, jobject obj,
 }
 
 JNIEXPORT void JNICALL
-Java_io_github_innobridge_llama_LlamaModel_delete(JNIEnv *env, jobject obj) {
+Java_io_github_innobridge_llama_client_LlamaModel_delete(JNIEnv *env, jobject obj) {
   jlong server_handle = env->GetLongField(obj, f_model_pointer);
   auto *ctx_server = reinterpret_cast<server_context *>(
       server_handle); // NOLINT(*-no-int-to-ptr)
@@ -643,7 +643,7 @@ Java_io_github_innobridge_llama_LlamaModel_delete(JNIEnv *env, jobject obj) {
 }
 
 JNIEXPORT void JNICALL
-Java_io_github_innobridge_llama_LlamaModel_cancelCompletion(JNIEnv *env,
+Java_io_github_innobridge_llama_client_LlamaModel_cancelCompletion(JNIEnv *env,
                                                             jobject obj,
                                                             jint id_task) {
   jlong server_handle = env->GetLongField(obj, f_model_pointer);
@@ -653,7 +653,7 @@ Java_io_github_innobridge_llama_LlamaModel_cancelCompletion(JNIEnv *env,
   ctx_server->queue_results.remove_waiting_task_id(id_task);
 }
 
-JNIEXPORT void JNICALL Java_io_github_innobridge_llama_LlamaModel_setLogger(
+JNIEXPORT void JNICALL Java_io_github_innobridge_llama_client_LlamaModel_setLogger(
     JNIEnv *env, jclass clazz, jobject log_format, jobject jcallback) {
   if (o_log_callback != nullptr) {
     env->DeleteGlobalRef(o_log_callback);

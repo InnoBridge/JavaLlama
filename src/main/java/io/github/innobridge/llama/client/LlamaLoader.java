@@ -1,4 +1,4 @@
-package io.github.innobridge.llama;
+package io.github.innobridge.llama.client;
 
 /*--------------------------------------------------------------------------
  *  Copyright 2007 Taro L. Saito
