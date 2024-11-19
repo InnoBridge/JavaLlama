@@ -1,8 +1,17 @@
-#include "utils.hpp"
+#pragma once
 
-#include "common.h"
-#include "grammar-parser.h"
+#include "utils.hpp"
+#include "common/grammar-parser.h"
 #include "llama.h"
+
+#include <string>
+#include <vector>
+#include <random>
+#include <thread>
+#include <atomic>
+#include <mutex>
+#include <condition_variable>
+#include <chrono>
 
 #include "nlohmann/json.hpp"
 
