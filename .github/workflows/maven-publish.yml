@@ -61,7 +61,8 @@ jobs:
             -DBUILD_SHARED_LIBS=OFF \
             -DLLAMA_BUILD_EXAMPLES=OFF \
             -DLLAMA_BUILD_TESTS=OFF \
-            -DLLAMA_METAL=OFF
+            -DLLAMA_METAL=OFF \
+            -DLLAMA_NATIVE=OFF
           cmake --build . --config Release --verbose
 
       - name: Build Native Library (Linux ARM64)
@@ -85,7 +86,8 @@ jobs:
               -DBUILD_SHARED_LIBS=OFF \
               -DLLAMA_BUILD_EXAMPLES=OFF \
               -DLLAMA_BUILD_TESTS=OFF \
-              -DLLAMA_METAL=OFF
+              -DLLAMA_METAL=OFF \
+              -DLLAMA_NATIVE=OFF
             cmake --build . --config Release --verbose
 
       - name: Build Native Library (macOS)
@@ -100,6 +102,7 @@ jobs:
             -DLLAMA_BUILD_EXAMPLES=OFF \
             -DLLAMA_BUILD_TESTS=OFF \
             -DLLAMA_METAL=ON \
+            -DLLAMA_NATIVE=OFF \
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch == 'aarch64' && 'arm64' || 'x86_64' }}
           cmake --build . --config Release --verbose
 
@@ -114,7 +117,8 @@ jobs:
             -DBUILD_SHARED_LIBS=OFF `
             -DLLAMA_BUILD_EXAMPLES=OFF `
             -DLLAMA_BUILD_TESTS=OFF `
-            -DLLAMA_METAL=OFF
+            -DLLAMA_METAL=OFF `
+            -DLLAMA_NATIVE=OFF
           cmake --build . --config Release --verbose
 
       - name: Generate Checksums

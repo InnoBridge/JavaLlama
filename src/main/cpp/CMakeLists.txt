@@ -9,6 +9,21 @@ set(LLAMA_STATIC ON CACHE BOOL "Build llama.cpp as static library")
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries")
 set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "Build llama.cpp examples")
 set(LLAMA_BUILD_TESTS OFF CACHE BOOL "Build llama.cpp tests")
+set(LLAMA_NATIVE OFF CACHE BOOL "Build with native CPU optimizations")
+
+# Detect architecture
+if(APPLE)
+    execute_process(
+        COMMAND uname -m
+        OUTPUT_VARIABLE ARCH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if(ARCH STREQUAL "arm64")
+        set(CMAKE_OSX_ARCHITECTURES "arm64")
+    else()
+        set(CMAKE_OSX_ARCHITECTURES "x86_64")
+    endif()
+endif()
 
 # Fetch llama.cpp
 FetchContent_Declare(
