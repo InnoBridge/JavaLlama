@@ -1,15 +1,33 @@
 cmake_minimum_required(VERSION 3.14)
 project(llama)
 
+# Include FetchContent
+include(FetchContent)
+
+# Fetch llama.cpp
+FetchContent_Declare(
+    llama.cpp
+    GIT_REPOSITORY https://github.com/ggerganov/llama.cpp.git
+    GIT_TAG master
+)
+FetchContent_MakeAvailable(llama.cpp)
+
+# Fetch nlohmann/json
+FetchContent_Declare(
+    json
+    URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+)
+FetchContent_MakeAvailable(json)
+
 # Find JNI
 find_package(JNI REQUIRED)
 
 # Include directories
 include_directories(
     ${JNI_INCLUDE_DIRS}
-    ${CMAKE_SOURCE_DIR}/build/_deps/json-src/include
-    ${CMAKE_SOURCE_DIR}/build/_deps/llama.cpp-src
-    ${CMAKE_SOURCE_DIR}/build/_deps/llama.cpp-src/common
+    ${json_SOURCE_DIR}/include
+    ${llama.cpp_SOURCE_DIR}
+    ${llama.cpp_SOURCE_DIR}/common
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
@@ -39,15 +57,14 @@ endif()
 
 # Link libraries
 target_link_libraries(jllama PRIVATE
-    llama
     llama_common
-    nlohmann_json
+    nlohmann_json::nlohmann_json
     ${JNI_LIBRARIES}
 )
 
 # Handle Metal shader for macOS
 if(APPLE)
-    set(METAL_SHADER ${CMAKE_SOURCE_DIR}/build/_deps/llama.cpp-src/ggml-metal.metal)
+    set(METAL_SHADER ${llama.cpp_SOURCE_DIR}/ggml-metal.metal)
     if(EXISTS ${METAL_SHADER})
         configure_file(${METAL_SHADER} ${CMAKE_CURRENT_BINARY_DIR}/ggml-metal.metal COPYONLY)
     endif()

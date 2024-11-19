@@ -53,9 +53,13 @@ jobs:
       - name: Build Native Library (Linux x86_64)
         if: runner.os == 'Linux' && matrix.arch == 'x86_64'
         run: |
-          mkdir build
+          mkdir -p build
           cd build
-          cmake ../src/main/cpp -DCMAKE_BUILD_TYPE=Release
+          cmake ../src/main/cpp \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLAMA_STATIC=ON \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DLLAMA_METAL=OFF
           cmake --build . --config Release
 
       - name: Build Native Library (Linux ARM64)
@@ -71,25 +75,38 @@ jobs:
             apt-get install -y cmake build-essential openjdk-17-jdk
           run: |
             cd /workspace
-            mkdir build
+            mkdir -p build
             cd build
-            cmake ../src/main/cpp -DCMAKE_BUILD_TYPE=Release
+            cmake ../src/main/cpp \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DLLAMA_STATIC=ON \
+              -DBUILD_SHARED_LIBS=OFF \
+              -DLLAMA_METAL=OFF
             cmake --build . --config Release
 
       - name: Build Native Library (macOS)
         if: runner.os == 'macOS'
         run: |
-          mkdir build
+          mkdir -p build
           cd build
-          cmake ../src/main/cpp -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch == 'aarch64' && 'arm64' || 'x86_64' }}
+          cmake ../src/main/cpp \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLAMA_STATIC=ON \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DLLAMA_METAL=ON \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch == 'aarch64' && 'arm64' || 'x86_64' }}
           cmake --build . --config Release
 
       - name: Build Native Library (Windows)
         if: runner.os == 'Windows'
         run: |
-          mkdir build
+          mkdir -p build
           cd build
-          cmake ../src/main/cpp -DCMAKE_BUILD_TYPE=Release
+          cmake ../src/main/cpp `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DLLAMA_STATIC=ON `
+            -DBUILD_SHARED_LIBS=OFF `
+            -DLLAMA_METAL=OFF
           cmake --build . --config Release
 
       - name: Generate Checksums
