@@ -14,7 +14,11 @@
 
 using json = nlohmann::ordered_json;
 
-// https://community.openai.com/t/openai-chat-list-of-error-codes-and-types/357791/11
+// Forward declarations
+static void replace_all(std::string & s, const std::string & search, const std::string & replace);
+static std::string get_chat_template(const struct llama_model* model);
+
+// Error types
 enum error_type {
   ERROR_TYPE_INVALID_REQUEST,
   ERROR_TYPE_AUTHENTICATION,
@@ -44,45 +48,112 @@ extern std::function<void(ggml_log_level, const char *, void *)> log_callback;
 #define LOG_INFO(MSG, ...)                                                     \
   server_log(GGML_LOG_LEVEL_INFO, __func__, __LINE__, MSG, __VA_ARGS__)
 
-static inline void server_log(ggml_log_level level, const char *function,
-                              int line, const char *message, const json &extra);
-
+// Utility functions declarations
 template <typename T>
 static T json_value(const json &body, const std::string &key,
-                    const T &default_value) {
-  // Fallback null to default value
-  if (body.contains(key) && !body.at(key).is_null()) {
-    try {
-      return body.at(key);
-    } catch (NLOHMANN_JSON_NAMESPACE::detail::type_error const &) {
-      std::stringstream ss;
-      ss << "Wrong type supplied for parameter '" << key << "'. Expected '"
-         << json(default_value).type_name() << "', using default value.";
-      LOG_WARNING(ss.str().c_str(), body);
-      return default_value;
-    }
-  } else {
-    return default_value;
-  }
-}
+                    const T &default_value);
 
-static const char *log_level_to_string(ggml_log_level level) {
-  switch (level) {
-  case GGML_LOG_LEVEL_ERROR:
-    return "ERROR";
-  case GGML_LOG_LEVEL_WARN:
-    return "WARN";
-  default:
-  case GGML_LOG_LEVEL_INFO:
-    return "INFO";
-  case GGML_LOG_LEVEL_DEBUG:
-    return "DEBUG";
-  }
-}
+static const char *log_level_to_string(ggml_log_level level);
 
 static inline void server_log(ggml_log_level level, const char *function,
                               int line, const char *message,
-                              const json &extra) {
+                              const json &extra);
+
+static std::string format_chat(const struct llama_model *model,
+                               const std::string &tmpl,
+                               const std::vector<json> &messages);
+
+static std::string tokens_to_str(llama_context *ctx, const std::vector<llama_token> &tokens);
+
+template <typename Iter>
+static std::string tokens_to_str(llama_context *ctx, Iter begin, Iter end);
+
+static std::string tokens_to_output_formatted_string(const llama_context *ctx,
+                                                     const llama_token token);
+
+static std::string llama_token_to_str(llama_context * ctx, llama_token token);
+
+static std::string token_to_piece(llama_context* ctx, llama_token token);
+
+static std::string random_string();
+
+static std::string gen_chatcmplid();
+
+static size_t common_part(const std::vector<llama_token> &a,
+                          const std::vector<llama_token> &b);
+
+static size_t common_part(const std::string &a, const std::string &b);
+
+static bool ends_with(const std::string &str, const std::string &suffix);
+
+static size_t find_partial_stop_string(const std::string &stop,
+                                       const std::string &text);
+
+struct completion_token_output {
+  llama_token tok;
+  std::string text_to_send;
+
+  struct token_prob {
+    llama_token tok;
+    float prob;
+  };
+
+  std::vector<token_prob> probs;
+};
+
+static json
+probs_vector_to_json(const llama_context *ctx,
+                     const std::vector<completion_token_output> &probs);
+
+static json oaicompat_completion_params_parse(
+    const struct llama_model *model,
+    const json &body,
+    const std::string &chat_template);
+
+static json format_final_response_oaicompat(const json &request, json result,
+                                            const std::string &completion_id,
+                                            bool streaming);
+
+static std::vector<json>
+format_partial_response_oaicompat(json result,
+                                  const std::string &completion_id);
+
+static json format_embeddings_response_oaicompat(const json &request,
+                                                 const json &embeddings);
+
+static json format_tokenizer_response(const std::vector<llama_token> &tokens);
+
+static json format_detokenized_response(const std::string &content);
+
+static json format_error_response(const std::string &message,
+                                  const enum error_type type);
+
+// Base64 utilities
+static const std::string base64_chars = 
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "abcdefghijklmnopqrstuvwxyz"
+    "0123456789+/";
+
+static inline bool is_base64(uint8_t c);
+static inline std::vector<uint8_t> base64_decode(const std::string &encoded_string);
+
+// Function implementations
+static void replace_all(std::string & s, const std::string & search, const std::string & replace) {
+    for (size_t pos = 0;; pos += replace.length()) {
+        pos = s.find(search, pos);
+        if (pos == std::string::npos) break;
+        s.erase(pos, search.length());
+        s.insert(pos, replace);
+    }
+}
+
+static std::string get_chat_template(const struct llama_model* model) {
+    // Default chat template if model doesn't provide one
+    return "{role}: {content}\n";
+}
+
+static inline void server_log(ggml_log_level level, const char *function,
+                              int line, const char *message, const json &extra) {
   std::stringstream ss_tid;
   ss_tid << std::this_thread::get_id();
 
@@ -134,124 +205,91 @@ static inline void server_log(ggml_log_level level, const char *function,
   fflush(stdout);
 }
 
-//
-// chat template utils
-//
-
-// Format given chat. If tmpl is empty, we take the template from model metadata
-inline std::string format_chat(const struct llama_model *model,
-                               const std::string &tmpl,
-                               const std::vector<json> &messages) {
-  std::vector<llama_chat_msg> chat;
-
-  for (size_t i = 0; i < messages.size(); ++i) {
-    const auto &curr_msg = messages[i];
-
-    std::string role = json_value(curr_msg, "role", std::string(""));
-
-    std::string content;
-    if (curr_msg.contains("content")) {
-      if (curr_msg["content"].is_string()) {
-        content = curr_msg["content"].get<std::string>();
-      } else if (curr_msg["content"].is_array()) {
-        for (const auto &part : curr_msg["content"]) {
-          if (part.contains("text")) {
-            content += "\n" + part["text"].get<std::string>();
-          }
-        }
-      } else {
-        throw std::runtime_error(
-            "Invalid 'content' type (ref: "
-            "https://github.com/ggerganov/llama.cpp/issues/8367)");
-      }
-    } else {
-      throw std::runtime_error(
-          "Missing 'content' (ref: "
-          "https://github.com/ggerganov/llama.cpp/issues/8367)");
+template <typename T>
+static T json_value(const json &body, const std::string &key,
+                    const T &default_value) {
+  // Fallback null to default value
+  if (body.contains(key) && !body.at(key).is_null()) {
+    try {
+      return body.at(key);
+    } catch (NLOHMANN_JSON_NAMESPACE::detail::type_error const &) {
+      std::stringstream ss;
+      ss << "Wrong type supplied for parameter '" << key << "'. Expected '"
+         << json(default_value).type_name() << "', using default value.";
+      LOG_WARNING(ss.str().c_str(), body);
+      return default_value;
     }
-
-    chat.push_back({role, content});
+  } else {
+    return default_value;
   }
-
-  auto formatted_chat = llama_chat_apply_template(model, tmpl, chat, true);
-  LOG_VERBOSE("formatted_chat", {{"text", formatted_chat.c_str()}});
-  return formatted_chat;
 }
 
-//
-// base64 utils (TODO: move to common in the future)
-//
-
-static const std::string base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                                        "abcdefghijklmnopqrstuvwxyz"
-                                        "0123456789+/";
-
-static inline bool is_base64(uint8_t c) {
-  return (isalnum(c) || (c == '+') || (c == '/'));
+static const char *log_level_to_string(ggml_log_level level) {
+  switch (level) {
+  case GGML_LOG_LEVEL_ERROR:
+    return "ERROR";
+  case GGML_LOG_LEVEL_WARN:
+    return "WARN";
+  default:
+  case GGML_LOG_LEVEL_INFO:
+    return "INFO";
+  case GGML_LOG_LEVEL_DEBUG:
+    return "DEBUG";
+  }
 }
 
-static inline std::vector<uint8_t>
-base64_decode(const std::string &encoded_string) {
-  int i = 0;
-  int j = 0;
-  int in_ = 0;
-
-  int in_len = encoded_string.size();
-
-  uint8_t char_array_4[4];
-  uint8_t char_array_3[3];
-
-  std::vector<uint8_t> ret;
-
-  while (in_len-- && (encoded_string[in_] != '=') &&
-         is_base64(encoded_string[in_])) {
-    char_array_4[i++] = encoded_string[in_];
-    in_++;
-    if (i == 4) {
-      for (i = 0; i < 4; i++) {
-        char_array_4[i] = base64_chars.find(char_array_4[i]);
-      }
-
-      char_array_3[0] =
-          ((char_array_4[0]) << 2) + ((char_array_4[1] & 0x30) >> 4);
-      char_array_3[1] =
-          ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
-      char_array_3[2] = ((char_array_4[2] & 0x3) << 6) + char_array_4[3];
-
-      for (i = 0; (i < 3); i++) {
-        ret.push_back(char_array_3[i]);
-      }
-
-      i = 0;
-    }
-  }
-
-  if (i) {
-    for (j = i; j < 4; j++) {
-      char_array_4[j] = 0;
-    }
-
-    for (j = 0; j < 4; j++) {
-      char_array_4[j] = base64_chars.find(char_array_4[j]);
-    }
-
-    char_array_3[0] =
-        ((char_array_4[0]) << 2) + ((char_array_4[1] & 0x30) >> 4);
-    char_array_3[1] =
-        ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
-    char_array_3[2] = ((char_array_4[2] & 0x3) << 6) + char_array_4[3];
-
-    for (j = 0; j < i - 1; j++) {
-      ret.push_back(char_array_3[j]);
-    }
+static std::string tokens_to_str(llama_context *ctx, const std::vector<llama_token> &tokens) {
+  std::string ret;
+  for (const auto &token : tokens) {
+    ret += llama_token_to_str(ctx, token);
   }
 
   return ret;
 }
 
-//
-// random string / id
-//
+template <typename Iter>
+static std::string tokens_to_str(llama_context *ctx, Iter begin, Iter end) {
+  std::string ret;
+  for (; begin != end; ++begin) {
+    ret += llama_token_to_str(ctx, *begin);
+  }
+
+  return ret;
+}
+
+static std::string tokens_to_output_formatted_string(const llama_context *ctx,
+                                                     const llama_token token) {
+    std::string result;
+    char buf[8];
+    int ret = llama_token_to_piece(llama_get_model(ctx), token, buf, sizeof(buf), 0, true);
+    if (ret < 0) {
+        return result;
+    }
+    result = std::string(buf, ret);
+    return result;
+}
+
+static std::string llama_token_to_str(llama_context * ctx, llama_token token) {
+    std::string result;
+    char buf[8];
+    int ret = llama_token_to_piece(llama_get_model(ctx), token, buf, sizeof(buf), 0, true);
+    if (ret < 0) {
+        return result;
+    }
+    result = std::string(buf, ret);
+    return result;
+}
+
+static std::string token_to_piece(llama_context* ctx, llama_token token) {
+    std::string result;
+    char buf[8];
+    int ret = llama_token_to_piece(llama_get_model(ctx), token, buf, sizeof(buf), 0, true);
+    if (ret < 0) {
+        return result;
+    }
+    result = std::string(buf, ret);
+    return result;
+}
 
 static std::string random_string() {
   static const std::string str(
@@ -275,10 +313,6 @@ static std::string gen_chatcmplid() {
 
   return chatcmplid.str();
 }
-
-//
-// other common utils
-//
 
 static size_t common_part(const std::vector<llama_token> &a,
                           const std::vector<llama_token> &b) {
@@ -319,81 +353,9 @@ static size_t find_partial_stop_string(const std::string &stop,
   return std::string::npos;
 }
 
-// TODO: reuse llama_detokenize
-template <class Iter>
-static std::string tokens_to_str(llama_context *ctx, Iter begin, Iter end) {
-  std::string ret;
-  for (; begin != end; ++begin) {
-    ret += llama_token_to_piece(ctx, *begin);
-  }
-
-  return ret;
-}
-
-// format incomplete utf-8 multibyte character for output
-static std::string tokens_to_output_formatted_string(const llama_context *ctx,
-                                                     const llama_token token) {
-  std::string out = token == -1 ? "" : llama_token_to_piece(ctx, token);
-
-  // if the size is 1 and first bit is 1, meaning it's a partial character
-  //   (size > 1 meaning it's already a known token)
-  if (out.size() == 1 && (out[0] & 0x80) == 0x80) {
-    std::stringstream ss;
-    ss << std::hex << (out[0] & 0xff);
-    std::string res(ss.str());
-    out = "byte: \\x" + res;
-  }
-
-  return out;
-}
-
-struct completion_token_output {
-  llama_token tok;
-  std::string text_to_send;
-
-  struct token_prob {
-    llama_token tok;
-    float prob;
-  };
-
-  std::vector<token_prob> probs;
-};
-
-// convert a vector of completion_token_output to json
-static json
-probs_vector_to_json(const llama_context *ctx,
-                     const std::vector<completion_token_output> &probs) {
-  json out = json::array();
-
-  for (const auto &prob : probs) {
-    json probs_for_token = json::array();
-
-    for (const auto &p : prob.probs) {
-      const std::string tok_str = tokens_to_output_formatted_string(ctx, p.tok);
-      probs_for_token.push_back(json{
-          {"tok_str", tok_str},
-          {"prob", p.prob},
-      });
-    }
-
-    const std::string tok_str =
-        tokens_to_output_formatted_string(ctx, prob.tok);
-    out.push_back(json{
-        {"content", tok_str},
-        {"probs", probs_for_token},
-    });
-  }
-
-  return out;
-}
-
-//
-// OAI utils
-//
-
 static json oaicompat_completion_params_parse(
     const struct llama_model *model,
-    const json &body, /* openai api json semantics */
+    const json &body,
     const std::string &chat_template) {
   json llama_params;
 
@@ -467,55 +429,51 @@ static json oaicompat_completion_params_parse(
 
 static json format_final_response_oaicompat(const json &request, json result,
                                             const std::string &completion_id,
-                                            bool streaming = false) {
-  bool stopped_word = result.count("stopped_word") != 0;
-  bool stopped_eos = json_value(result, "stopped_eos", false);
-  int num_tokens_predicted = json_value(result, "tokens_predicted", 0);
-  int num_prompt_tokens = json_value(result, "tokens_evaluated", 0);
-  std::string content = json_value(result, "content", std::string(""));
-
-  std::string finish_reason = "length";
-  if (stopped_word || stopped_eos) {
-    finish_reason = "stop";
+                                            bool streaming) {
+  if (!result.contains("model") || !result.contains("oaicompat_token_ctr")) {
+    return result;
   }
 
-  json choices =
-      streaming ? json::array({json{{"finish_reason", finish_reason},
-                                    {"index", 0},
-                                    {"delta", json::object()}}})
-                : json::array({json{{"finish_reason", finish_reason},
-                                    {"index", 0},
-                                    {"message", json{{"content", content},
-                                                     {"role", "assistant"}}}}});
+  std::string model = result["model"];
+  int token_ctr = result["oaicompat_token_ctr"];
 
-  std::time_t t = std::time(0);
+  result.erase("model");
+  result.erase("oaicompat_token_ctr");
 
-  json res =
-      json{{"choices", choices},
-           {"created", t},
-           {"model",
-            json_value(request, "model", std::string(DEFAULT_OAICOMPAT_MODEL))},
-           {"object", streaming ? "chat.completion.chunk" : "chat.completion"},
-           {"usage",
-            json{{"completion_tokens", num_tokens_predicted},
-                 {"prompt_tokens", num_prompt_tokens},
-                 {"total_tokens", num_tokens_predicted + num_prompt_tokens}}},
-           {"id", completion_id}};
+  json res = {
+      {"id", completion_id},
+      {"object", streaming ? "chat.completion.chunk" : "chat.completion"},
+      {"created", time(nullptr)},
+      {"model", model},
+      {"choices", json::array()},
+  };
 
-#if SERVER_VERBOSE
-  res["__verbose"] = result;
-#endif
-
-  if (result.contains("completion_probabilities")) {
-    res["completion_probabilities"] =
-        json_value(result, "completion_probabilities", json::array());
+  if (result.contains("usage")) {
+    res["usage"] = result["usage"];
+    result.erase("usage");
   }
+
+  json choice = {{"index", 0}};
+
+  if (streaming) {
+    choice["delta"] = result;
+    if (token_ctr == 0) {
+      choice["finish_reason"] = nullptr;
+    } else if (result.empty()) {
+      choice["finish_reason"] = "stop";
+    } else {
+      choice["finish_reason"] = nullptr;
+    }
+  } else {
+    choice["message"] = result;
+    choice["finish_reason"] = "stop";
+  }
+
+  res["choices"].push_back(choice);
 
   return res;
 }
 
-// return value is vector as there is one case where we might need to generate
-// two responses
 static std::vector<json>
 format_partial_response_oaicompat(json result,
                                   const std::string &completion_id) {
@@ -680,4 +638,123 @@ static json format_error_response(const std::string &message,
       {"message", message},
       {"type", type_str},
   };
+}
+
+static json
+probs_vector_to_json(const llama_context *ctx,
+                     const std::vector<completion_token_output> &probs) {
+  json out = json::array();
+
+  for (const auto &prob : probs) {
+    json probs_for_token = json::array();
+
+    for (const auto &p : prob.probs) {
+      const std::string tok_str = tokens_to_output_formatted_string(ctx, p.tok);
+      probs_for_token.push_back(json{
+          {"tok_str", tok_str},
+          {"prob", p.prob},
+      });
+    }
+
+    const std::string tok_str =
+        tokens_to_output_formatted_string(ctx, prob.tok);
+    out.push_back(json{
+        {"content", tok_str},
+        {"probs", probs_for_token},
+    });
+  }
+
+  return out;
+}
+
+static inline bool is_base64(uint8_t c) {
+  return (isalnum(c) || (c == '+') || (c == '/'));
+}
+
+static inline std::vector<uint8_t> base64_decode(const std::string &encoded_string) {
+  int i = 0;
+  int j = 0;
+  int in_ = 0;
+
+  int in_len = encoded_string.size();
+
+  uint8_t char_array_4[4];
+  uint8_t char_array_3[3];
+
+  std::vector<uint8_t> ret;
+
+  while (in_len-- && (encoded_string[in_] != '=') &&
+         is_base64(encoded_string[in_])) {
+    char_array_4[i++] = encoded_string[in_];
+    in_++;
+    if (i == 4) {
+      for (i = 0; i < 4; i++) {
+        char_array_4[i] = base64_chars.find(char_array_4[i]);
+      }
+
+      char_array_3[0] =
+          ((char_array_4[0]) << 2) + ((char_array_4[1] & 0x30) >> 4);
+      char_array_3[1] =
+          ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
+      char_array_3[2] = ((char_array_4[2] & 0x3) << 6) + char_array_4[3];
+
+      for (i = 0; (i < 3); i++) {
+        ret.push_back(char_array_3[i]);
+      }
+
+      i = 0;
+    }
+  }
+
+  if (i) {
+    for (j = i; j < 4; j++) {
+      char_array_4[j] = 0;
+    }
+
+    for (j = 0; j < 4; j++) {
+      char_array_4[j] = base64_chars.find(char_array_4[j]);
+    }
+
+    char_array_3[0] =
+        ((char_array_4[0]) << 2) + ((char_array_4[1] & 0x30) >> 4);
+    char_array_3[1] =
+        ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
+    char_array_3[2] = ((char_array_4[2] & 0x3) << 6) + char_array_4[3];
+
+    for (j = 0; j < i - 1; j++) {
+      ret.push_back(char_array_3[j]);
+    }
+  }
+
+  return ret;
+}
+
+static std::string format_chat(const struct llama_model *model,
+                               const std::string &tmpl,
+                               const std::vector<json> &messages) {
+    std::string result;
+    if (messages.empty()) {
+        return result;
+    }
+
+    // Use model's chat template if none provided
+    std::string chat_template = tmpl;
+    if (chat_template.empty()) {
+        chat_template = get_chat_template(model);
+    }
+
+    // Format messages according to template
+    for (const auto& msg : messages) {
+        std::string role = msg["role"].get<std::string>();
+        std::string content = msg["content"].get<std::string>();
+        
+        // Replace placeholders in template
+        std::string formatted = chat_template;
+        replace_all(formatted, "{role}", role);
+        replace_all(formatted, "{content}", content);
+        
+        result += formatted;
+    }
+
+    return result;
 }
