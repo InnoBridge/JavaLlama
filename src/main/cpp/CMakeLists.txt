@@ -5,8 +5,8 @@ project(llama)
 include(FetchContent)
 
 # Set llama.cpp build options
-set(LLAMA_STATIC ON CACHE BOOL "Build llama.cpp as static library")
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries")
+set(LLAMA_STATIC OFF CACHE BOOL "Build llama.cpp as static library")
+set(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared libraries")
 set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "Build llama.cpp examples")
 set(LLAMA_BUILD_TESTS OFF CACHE BOOL "Build llama.cpp tests")
 set(LLAMA_NATIVE OFF CACHE BOOL "Build with native CPU optimizations")
@@ -48,6 +48,8 @@ include_directories(
     ${JNI_INCLUDE_DIRS}
     ${json_SOURCE_DIR}/include
     ${llama.cpp_SOURCE_DIR}
+    ${llama.cpp_SOURCE_DIR}/examples
+    ${llama.cpp_SOURCE_DIR}/common
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
@@ -72,6 +74,8 @@ endif()
 # Link libraries
 target_link_libraries(jllama PRIVATE
     llama
+    common
+    ggml
     nlohmann_json::nlohmann_json
     ${JNI_LIBRARIES}
 )

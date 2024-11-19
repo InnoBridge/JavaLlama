@@ -1,9 +1,9 @@
 #pragma once
 
-#include "common.h"
+#include <common/common.h>
 #include "llama.h"
 
-#include "json.hpp"
+#include <nlohmann/json.hpp>
 
 #include <random>
 #include <sstream>
