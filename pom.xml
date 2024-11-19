@@ -70,18 +70,6 @@
 			<scope>test</scope>
 		</dependency>
 
-		<dependency>
-			<groupId>de.kherud</groupId>
-			<artifactId>llama</artifactId>
-			<version>3.4.1</version>
-		</dependency>
-	
-   <dependency>
-     <groupId>org.springframework</groupId>
-     <artifactId>spring-websocket</artifactId>
-     <version>6.2.0</version>
-   </dependency>
-
 		<!-- OpenAPI/Swagger -->
 		<dependency>
 			<groupId>org.springdoc</groupId>
@@ -141,6 +129,9 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+         <configuration>
+        <skip>true</skip>  <!-- Add this line -->
+      </configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.sonatype.plugins</groupId>
