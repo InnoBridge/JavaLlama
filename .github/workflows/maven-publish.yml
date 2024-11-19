@@ -5,30 +5,194 @@ on:
   workflow_dispatch:
 
 jobs:
-  publish:
-    runs-on: macos-latest
+  build-natives:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: Linux
+            arch: x86_64
+          - os: ubuntu-latest
+            platform: Linux
+            arch: aarch64
+            qemu: true
+          - os: windows-latest
+            platform: Windows
+            arch: x86_64
+          - os: macos-latest
+            platform: Mac
+            arch: x86_64
+          - os: macos-latest
+            platform: Mac
+            arch: aarch64
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          
-      - name: Set up JDK
-        uses: actions/setup-java@v4
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        if: matrix.qemu
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Install CMake (Ubuntu)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y cmake
+
+      - name: Install CMake (macOS)
+        if: runner.os == 'macOS'
+        run: brew install cmake
+
+      - name: Install CMake (Windows)
+        if: runner.os == 'Windows'
+        run: choco install cmake --yes
+
+      - name: Build Native Library (Linux x86_64)
+        if: runner.os == 'Linux' && matrix.arch == 'x86_64'
+        run: |
+          mkdir build
+          cd build
+          cmake ../src/main/cpp -DCMAKE_BUILD_TYPE=Release
+          cmake --build . --config Release
+
+      - name: Build Native Library (Linux ARM64)
+        if: runner.os == 'Linux' && matrix.arch == 'aarch64'
+        uses: uraimo/run-on-arch-action@v2
+        with:
+          arch: aarch64
+          distro: ubuntu22.04
+          dockerRunArgs: |
+            --volume "${PWD}:/workspace"
+          install: |
+            apt-get update
+            apt-get install -y cmake build-essential openjdk-17-jdk
+          run: |
+            cd /workspace
+            mkdir build
+            cd build
+            cmake ../src/main/cpp -DCMAKE_BUILD_TYPE=Release
+            cmake --build . --config Release
+
+      - name: Build Native Library (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir build
+          cd build
+          cmake ../src/main/cpp -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch == 'aarch64' && 'arm64' || 'x86_64' }}
+          cmake --build . --config Release
+
+      - name: Build Native Library (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir build
+          cd build
+          cmake ../src/main/cpp -DCMAKE_BUILD_TYPE=Release
+          cmake --build . --config Release
+
+      - name: Generate Checksums
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            Get-ChildItem -Recurse -Include *.dll | ForEach-Object { Get-FileHash $_ -Algorithm SHA256 } | Out-File -FilePath checksums.txt
+          else
+            if [ "$RUNNER_OS" == "Linux" ]; then
+              find build -type f -name "*.so" -exec sha256sum {} \; > checksums.txt
+            else
+              find build -type f -name "*.dylib" -exec shasum -a 256 {} \; > checksums.txt
+            fi
+          fi
+        shell: bash
+
+      - name: Upload Native Library
+        uses: actions/upload-artifact@v3
+        with:
+          name: native-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            build/**/*.dll
+            build/**/*.so
+            build/**/*.dylib
+            src/main/resources/ggml-metal.metal
+            checksums.txt
+
+  publish:
+    needs: build-natives
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download All Native Libraries
+        uses: actions/download-artifact@v3
+        with:
+          path: native-libs
+
+      - name: Verify Checksums
+        run: |
+          for dir in native-libs/native-*; do
+            if [ -f "$dir/checksums.txt" ]; then
+              cd "$dir"
+              if [ -f "*.dll" ]; then
+                Get-FileHash *.dll -Algorithm SHA256 | ForEach-Object { if (-not (Select-String -Path checksums.txt -Pattern $_.Hash)) { throw "Checksum verification failed for $($_.Path)" } }
+              elif [ -f "*.so" ]; then
+                sha256sum -c checksums.txt
+              elif [ -f "*.dylib" ]; then
+                shasum -a 256 -c checksums.txt
+              fi
+              cd ../..
+            fi
+          done
+        shell: bash
+
+      - name: Set up Java for publishing to Maven Central
+        uses: actions/setup-java@v3
         with:
           java-version: '22'
-          distribution: 'oracle'
-          server-id: ossrh
+          distribution: 'temurin'
+          cache: maven
+          server-id: maven
           server-username: MAVEN_USERNAME
           server-password: MAVEN_PASSWORD
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
-          
-      - name: Install CMake
-        run: brew install cmake
-        
-      - name: Build with Maven
+
+      - name: Organize Native Libraries
+        run: |
+          # Create resource directories
+          mkdir -p src/main/resources/io/github/innobridge/llama/client/Linux/x86_64
+          mkdir -p src/main/resources/io/github/innobridge/llama/client/Linux/aarch64
+          mkdir -p src/main/resources/io/github/innobridge/llama/client/Windows/x86_64
+          mkdir -p src/main/resources/io/github/innobridge/llama/client/Mac/x86_64
+          mkdir -p src/main/resources/io/github/innobridge/llama/client/Mac/aarch64
+
+          # Copy Linux x86_64 libraries
+          cp native-libs/native-Linux-x86_64/build/lib/*.so src/main/resources/io/github/innobridge/llama/client/Linux/x86_64/
+
+          # Copy Linux ARM64 libraries
+          cp native-libs/native-Linux-aarch64/build/lib/*.so src/main/resources/io/github/innobridge/llama/client/Linux/aarch64/
+
+          # Copy Windows libraries
+          cp native-libs/native-Windows-x86_64/build/lib/*.dll src/main/resources/io/github/innobridge/llama/client/Windows/x86_64/
+
+          # Copy macOS x86_64 libraries
+          cp native-libs/native-Mac-x86_64/build/lib/*.dylib src/main/resources/io/github/innobridge/llama/client/Mac/x86_64/
+          cp src/main/resources/ggml-metal.metal src/main/resources/io/github/innobridge/llama/client/Mac/x86_64/
+
+          # Copy macOS ARM64 libraries
+          cp native-libs/native-Mac-aarch64/build/lib/*.dylib src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/
+          cp src/main/resources/ggml-metal.metal src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/
+
+      - name: Publish to Maven Central
         env:
-          MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-          MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: mvn --batch-mode deploy
+        run: |
+          mvn \
+            --no-transfer-progress \
+            --batch-mode \
+            -Dgpg.passphrase=${{ secrets.GPG_PASSPHRASE }} \
+            -P release \
+            clean deploy

@@ -387,9 +387,6 @@ JNIEXPORT void JNICALL Java_io_github_innobridge_llama_client_LlamaModel_loadMod
 
   llama_numa_init(params.numa);
 
-  LOG_INFO("build info",
-           {{"build", LLAMA_BUILD_NUMBER}, {"commit", LLAMA_COMMIT}});
-
   LOG_INFO("system info",
            {
                {"n_threads", params.n_threads},

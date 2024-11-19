@@ -30,7 +30,7 @@ import java.util.stream.Stream;
  * @author leo
  */
 @SuppressWarnings("UseOfSystemOutOrSystemErr")
-class OSInfo {
+public class OSInfo {
   public static final String X86 = "x86";
   public static final String X86_64 = "x86_64";
   public static final String IA64_32 = "ia64_32";
@@ -94,23 +94,23 @@ class OSInfo {
     System.out.print(getNativeLibFolderPathForCurrentOS());
   }
 
-  static String getNativeLibFolderPathForCurrentOS() {
+  public static String getNativeLibFolderPathForCurrentOS() {
     return getOSName() + "/" + getArchName();
   }
 
-  static String getOSName() {
+  public static String getOSName() {
     return translateOSNameToFolderName(System.getProperty("os.name"));
   }
 
-  static boolean isAndroid() {
+  public static boolean isAndroid() {
     return isAndroidRuntime() || isAndroidTermux();
   }
 
-  static boolean isAndroidRuntime() {
+  public static boolean isAndroidRuntime() {
     return System.getProperty("java.runtime.name", "").toLowerCase().contains("android");
   }
 
-  static boolean isAndroidTermux() {
+  public static boolean isAndroidTermux() {
     try {
       return processRunner.runAndWaitFor("uname -o").toLowerCase().contains("android");
     } catch (Exception ignored) {
@@ -118,7 +118,7 @@ class OSInfo {
     }
   }
 
-  static boolean isMusl() {
+  public static boolean isMusl() {
     Path mapFilesDir = Paths.get("/proc/self/map_files");
     try (Stream<Path> dirStream = Files.list(mapFilesDir)) {
       return dirStream
@@ -139,7 +139,7 @@ class OSInfo {
     }
   }
 
-  static boolean isAlpineLinux() {
+  public static boolean isAlpineLinux() {
     try (Stream<String> osLines = Files.lines(Paths.get("/etc/os-release"))) {
       return osLines.anyMatch(l -> l.startsWith("ID") && l.contains("alpine"));
     } catch (Exception ignored2) {
@@ -147,7 +147,7 @@ class OSInfo {
     return false;
   }
 
-  static String getHardwareName() {
+  public static String getHardwareName() {
     try {
       return processRunner.runAndWaitFor("uname -m");
     } catch (Throwable e) {
@@ -156,7 +156,7 @@ class OSInfo {
     }
   }
 
-  static String resolveArmArchType() {
+  public static String resolveArmArchType() {
     if (System.getProperty("os.name").contains("Linux")) {
       String armType = getHardwareName();
       // armType (uname -m) can be armv5t, armv5te, armv5tej, armv5tejl, armv6, armv7,
@@ -224,7 +224,7 @@ class OSInfo {
     return "arm";
   }
 
-  static String getArchName() {
+  public static String getArchName() {
     String override = System.getProperty("de.kherud.llama.osinfo.architecture");
     if (override != null) {
       return override;
@@ -242,7 +242,7 @@ class OSInfo {
     return translateArchNameToFolderName(osArch);
   }
 
-  static String translateOSNameToFolderName(String osName) {
+  public static String translateOSNameToFolderName(String osName) {
     if (osName.contains("Windows")) {
       return "Windows";
     } else if (osName.contains("Mac") || osName.contains("Darwin")) {
@@ -260,7 +260,7 @@ class OSInfo {
     }
   }
 
-  static String translateArchNameToFolderName(String archName) {
+  public static String translateArchNameToFolderName(String archName) {
     return archName.replaceAll("\\W", "");
   }
 }

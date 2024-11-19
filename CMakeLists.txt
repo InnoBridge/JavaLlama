@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.14)
-
 project(jllama CXX)
 
 include(FetchContent)
@@ -7,55 +6,59 @@ include(FetchContent)
 set(BUILD_SHARED_LIBS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-option(LLAMA_VERBOSE	"llama: verbose output"		OFF)
+option(LLAMA_VERBOSE "llama: verbose output" OFF)
 
 #################### json ####################
 
-FetchContent_Declare(
-	json
-	GIT_REPOSITORY https://github.com/nlohmann/json
-	GIT_TAG        v3.11.3
+set(JSON_BuildTests OFF CACHE INTERNAL "")
+set(JSON_Install OFF CACHE INTERNAL "")
+
+FetchContent_Declare(json
+    URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+    URL_HASH SHA256=d6c65aca6b1ed68e7a182f4757257b107ae403032760ed6ef121c9d55e81757d
 )
 FetchContent_MakeAvailable(json)
 
 #################### llama.cpp ####################
 
 FetchContent_Declare(
-	llama.cpp
-	GIT_REPOSITORY https://github.com/ggerganov/llama.cpp.git
-	GIT_TAG        b3534
+    llama.cpp
+    GIT_REPOSITORY https://github.com/ggerganov/llama.cpp.git
+    GIT_TAG        b3534
 )
 FetchContent_MakeAvailable(llama.cpp)
 
 #################### jllama ####################
 
-# find which OS we build for if not set (make sure to run mvn compile first)
-if(NOT DEFINED OS_NAME)
-    find_package(Java REQUIRED)
-    find_program(JAVA_EXECUTABLE NAMES java)
-	execute_process(
-      COMMAND ${JAVA_EXECUTABLE} -cp ${CMAKE_SOURCE_DIR}/target/classes io.github.innobridge.llama.client.OSInfo --os
-      OUTPUT_VARIABLE OS_NAME
-      OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-endif()
-if(NOT OS_NAME)
-    message(FATAL_ERROR "Could not determine OS name")
+# Detect OS and architecture
+if(APPLE)
+    set(OS_NAME "Mac")
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+        set(OS_ARCH "aarch64")
+    else()
+        set(OS_ARCH "x86_64")
+    endif()
+elseif(WIN32)
+    set(OS_NAME "Windows")
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "AMD64")
+        set(OS_ARCH "x86_64")
+    else()
+        message(FATAL_ERROR "Unsupported Windows architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+    endif()
+elseif(UNIX AND NOT APPLE)
+    set(OS_NAME "Linux")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)$")
+        set(OS_ARCH "x86_64")
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
+        set(OS_ARCH "aarch64")
+    else()
+        message(FATAL_ERROR "Unsupported Linux architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+    endif()
+else()
+    message(FATAL_ERROR "Unsupported operating system")
 endif()
 
-# find which architecture we build for if not set  (make sure to run mvn compile first)
-if(NOT DEFINED OS_ARCH)
-    find_package(Java REQUIRED)
-    find_program(JAVA_EXECUTABLE NAMES java)
-    execute_process(
-      COMMAND ${JAVA_EXECUTABLE} -cp ${CMAKE_SOURCE_DIR}/target/classes io.github.innobridge.llama.client.OSInfo --arch
-      OUTPUT_VARIABLE OS_ARCH
-      OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-endif()
-if(NOT OS_ARCH)
-    message(FATAL_ERROR "Could not determine CPU architecture")
-endif()
+message(STATUS "Building for ${OS_NAME} ${OS_ARCH}")
 
 if(GGML_CUDA)
     set(JLLAMA_DIR ${CMAKE_SOURCE_DIR}/src/main/resources_linux_cuda/io/github/innobridge/llama/client/${OS_NAME}/${OS_ARCH})
@@ -71,14 +74,10 @@ if(NOT DEFINED JNI_INCLUDE_DIRS)
         set(JNI_INCLUDE_DIRS .github/include/unix)
     elseif(OS_NAME STREQUAL "Windows")
         set(JNI_INCLUDE_DIRS .github/include/windows)
-    # if we don't have provided headers, try to find them via Java
     else()
         find_package(Java REQUIRED)
         find_program(JAVA_EXECUTABLE NAMES java)
-
         find_path(JNI_INCLUDE_DIRS NAMES jni.h HINTS ENV JAVA_HOME PATH_SUFFIXES include)
-
-        # find "jni_md.h" include directory if not set
         file(GLOB_RECURSE JNI_MD_PATHS RELATIVE "${JNI_INCLUDE_DIRS}" "${JNI_INCLUDE_DIRS}/**/jni_md.h")
         foreach(PATH IN LISTS JNI_MD_PATHS)
             get_filename_component(DIR ${PATH} DIRECTORY)
@@ -91,34 +90,46 @@ if(NOT JNI_INCLUDE_DIRS)
 endif()
 
 # Add JNI include paths
-include_directories(
-    "/Library/Java/JavaVirtualMachines/jdk-22.jdk/Contents/Home/include"
-    "/Library/Java/JavaVirtualMachines/jdk-22.jdk/Contents/Home/include/darwin"
-)
-
-add_library(jllama SHARED src/main/cpp/jllama.cpp src/main/cpp/server.hpp src/main/cpp/utils.hpp)
-
-set_target_properties(jllama PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_include_directories(jllama PRIVATE src/main/cpp ${JNI_INCLUDE_DIRS})
-target_link_libraries(jllama PRIVATE common llama nlohmann_json)
-target_compile_features(jllama PRIVATE cxx_std_11)
-
-target_compile_definitions(jllama PRIVATE
-    SERVER_VERBOSE=$<BOOL:${LLAMA_VERBOSE}>
-)
-
-if(OS_NAME STREQUAL "Windows")
-	set_target_properties(jllama llama ggml PROPERTIES
-	  RUNTIME_OUTPUT_DIRECTORY_DEBUG ${JLLAMA_DIR}
-	  RUNTIME_OUTPUT_DIRECTORY_RELEASE ${JLLAMA_DIR}
-	)
-else()
-	set_target_properties(jllama llama ggml PROPERTIES
-	  LIBRARY_OUTPUT_DIRECTORY ${JLLAMA_DIR}
-	)
+if(APPLE)
+    include_directories(
+        "/Library/Java/JavaVirtualMachines/jdk-22.jdk/Contents/Home/include"
+        "/Library/Java/JavaVirtualMachines/jdk-22.jdk/Contents/Home/include/darwin"
+    )
 endif()
 
-if (LLAMA_METAL AND NOT LLAMA_METAL_EMBED_LIBRARY)
-    # copy ggml-common.h and ggml-metal.metal to bin directory
-    configure_file(${llama.cpp_SOURCE_DIR}/ggml-metal.metal ${JLLAMA_DIR}/ggml-metal.metal COPYONLY)
+# Build the native libraries
+add_subdirectory(src/main/cpp)
+
+# Set rpath for macOS
+if(APPLE)
+    set_target_properties(jllama PROPERTIES
+        INSTALL_RPATH "@loader_path"
+        BUILD_WITH_INSTALL_RPATH TRUE
+    )
 endif()
+
+# Install libraries and resources
+install(
+    TARGETS jllama
+    LIBRARY DESTINATION ${JLLAMA_DIR}
+    RUNTIME DESTINATION ${JLLAMA_DIR}
+)
+
+install(
+    TARGETS ggml llama
+    LIBRARY DESTINATION ${JLLAMA_DIR}
+    RUNTIME DESTINATION ${JLLAMA_DIR}
+)
+
+if(APPLE)
+    install(
+        FILES ${CMAKE_BINARY_DIR}/src/main/cpp/ggml-metal.metal
+        DESTINATION ${JLLAMA_DIR}
+    )
+endif()
+
+install(TARGETS ggml llama
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
