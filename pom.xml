@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>io.github.innobridge</groupId>
 	<artifactId>llama</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.0.2-SNAPSHOT</version>
 	<name>JavaLlama</name>
 	<description>Java bindings for llama.cpp</description>
 	<url>https://github.com/innobridge/JavaLlama</url>
@@ -54,27 +54,6 @@
 			<artifactId>annotations</artifactId>
 			<version>24.1.0</version>
 			<scope>compile</scope>
-		</dependency>
-
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-web</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-
-		<!-- OpenAPI/Swagger -->
-		<dependency>
-			<groupId>org.springdoc</groupId>
-			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-			<version>2.0.3</version>
 		</dependency>
  </dependencies>
 
