@@ -4,6 +4,12 @@ project(llama)
 # Include FetchContent
 include(FetchContent)
 
+# Set llama.cpp build options
+set(LLAMA_STATIC ON CACHE BOOL "Build llama.cpp as static library")
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries")
+set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "Build llama.cpp examples")
+set(LLAMA_BUILD_TESTS OFF CACHE BOOL "Build llama.cpp tests")
+
 # Fetch llama.cpp
 FetchContent_Declare(
     llama.cpp
@@ -27,19 +33,12 @@ include_directories(
     ${JNI_INCLUDE_DIRS}
     ${json_SOURCE_DIR}/include
     ${llama.cpp_SOURCE_DIR}
-    ${llama.cpp_SOURCE_DIR}/common
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# Add common library from llama.cpp
-add_library(llama_common STATIC IMPORTED)
-set_target_properties(llama_common PROPERTIES
-    IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/_deps/llama.cpp-build/common/libcommon.a"
-)
 
 # Add jllama library
 add_library(jllama SHARED
@@ -57,16 +56,26 @@ endif()
 
 # Link libraries
 target_link_libraries(jllama PRIVATE
-    llama_common
+    llama
     nlohmann_json::nlohmann_json
     ${JNI_LIBRARIES}
+)
+
+# Add compile definitions
+target_compile_definitions(jllama PRIVATE
+    GGML_USE_K_QUANTS
 )
 
 # Handle Metal shader for macOS
 if(APPLE)
     set(METAL_SHADER ${llama.cpp_SOURCE_DIR}/ggml-metal.metal)
     if(EXISTS ${METAL_SHADER})
-        configure_file(${METAL_SHADER} ${CMAKE_CURRENT_BINARY_DIR}/ggml-metal.metal COPYONLY)
+        add_custom_command(
+            TARGET jllama POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy
+                ${METAL_SHADER}
+                ${CMAKE_SOURCE_DIR}/../resources/ggml-metal.metal
+        )
     endif()
 endif()
 

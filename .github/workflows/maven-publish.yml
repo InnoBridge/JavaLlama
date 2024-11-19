@@ -59,8 +59,10 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DLLAMA_STATIC=ON \
             -DBUILD_SHARED_LIBS=OFF \
+            -DLLAMA_BUILD_EXAMPLES=OFF \
+            -DLLAMA_BUILD_TESTS=OFF \
             -DLLAMA_METAL=OFF
-          cmake --build . --config Release
+          cmake --build . --config Release --verbose
 
       - name: Build Native Library (Linux ARM64)
         if: runner.os == 'Linux' && matrix.arch == 'aarch64'
@@ -81,8 +83,10 @@ jobs:
               -DCMAKE_BUILD_TYPE=Release \
               -DLLAMA_STATIC=ON \
               -DBUILD_SHARED_LIBS=OFF \
+              -DLLAMA_BUILD_EXAMPLES=OFF \
+              -DLLAMA_BUILD_TESTS=OFF \
               -DLLAMA_METAL=OFF
-            cmake --build . --config Release
+            cmake --build . --config Release --verbose
 
       - name: Build Native Library (macOS)
         if: runner.os == 'macOS'
@@ -93,9 +97,11 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DLLAMA_STATIC=ON \
             -DBUILD_SHARED_LIBS=OFF \
+            -DLLAMA_BUILD_EXAMPLES=OFF \
+            -DLLAMA_BUILD_TESTS=OFF \
             -DLLAMA_METAL=ON \
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch == 'aarch64' && 'arm64' || 'x86_64' }}
-          cmake --build . --config Release
+          cmake --build . --config Release --verbose
 
       - name: Build Native Library (Windows)
         if: runner.os == 'Windows'
@@ -106,8 +112,10 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release `
             -DLLAMA_STATIC=ON `
             -DBUILD_SHARED_LIBS=OFF `
+            -DLLAMA_BUILD_EXAMPLES=OFF `
+            -DLLAMA_BUILD_TESTS=OFF `
             -DLLAMA_METAL=OFF
-          cmake --build . --config Release
+          cmake --build . --config Release --verbose
 
       - name: Generate Checksums
         run: |
