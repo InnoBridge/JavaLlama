@@ -66,7 +66,19 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           mkdir -p src/main/resources/io/github/innobridge/llama/client/Mac/aarch64
-          cp build/llama.cpp/ggml/src/ggml-metal.metal src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/
+          # First try to find the metal shader file
+          METAL_FILE=$(find build -name "ggml-metal.metal" -type f)
+          if [ -z "$METAL_FILE" ]; then
+            # If not found in build, try the source directory
+            METAL_FILE=$(find . -name "ggml-metal.metal" -type f)
+          fi
+          if [ -n "$METAL_FILE" ]; then
+            echo "Found metal shader at: $METAL_FILE"
+            cp "$METAL_FILE" src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/
+          else
+            echo "Error: Could not find ggml-metal.metal"
+            exit 1
+          fi
 
       - name: Copy Native Libraries
         run: |
