@@ -44,6 +44,8 @@ jobs:
             -DLLAMA_METAL=OFF \
             -DLLAMA_NATIVE=OFF
           cmake --build . --config Release --verbose
+          mkdir -p ../src/main/resources/io/github/innobridge/llama/client/Linux/x86_64
+          cp src/main/resources/io/github/innobridge/llama/client/Linux/x86_64/* ../src/main/resources/io/github/innobridge/llama/client/Linux/x86_64/
 
       - name: Build Native Library (macOS)
         if: runner.os == 'macOS'
@@ -60,13 +62,16 @@ jobs:
             -DLLAMA_NATIVE=OFF \
             -DCMAKE_OSX_ARCHITECTURES=arm64
           cmake --build . --config Release --verbose
+          mkdir -p ../src/main/resources/io/github/innobridge/llama/client/Mac/aarch64
+          cp src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/* ../src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/
 
       - name: Generate Checksums
         run: |
+          cd src/main/resources/io/github/innobridge/llama/client
           if [ "$RUNNER_OS" == "Linux" ]; then
-            find build -type f -name "*.so" -exec sha256sum {} \; > checksums.txt
+            find Linux -type f -name "*.so" -exec sha256sum {} \; > checksums.txt
           else
-            find build -type f -name "*.dylib" -exec shasum -a 256 {} \; > checksums.txt
+            find Mac -type f -name "*.dylib" -exec shasum -a 256 {} \; > checksums.txt
           fi
         shell: bash
 
@@ -75,10 +80,8 @@ jobs:
         with:
           name: native-${{ matrix.platform }}-${{ matrix.arch }}
           path: |
-            build/**/*.so
-            build/**/*.dylib
-            src/main/resources/ggml-metal.metal
-            checksums.txt
+            src/main/resources/io/github/innobridge/llama/client/${{ matrix.platform }}/${{ matrix.arch }}
+            src/main/resources/io/github/innobridge/llama/client/checksums.txt
 
   publish:
     needs: build-natives
@@ -88,60 +91,41 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download All Native Libraries
-        uses: actions/download-artifact@v3
-        with:
-          path: native-libs
-
-      - name: Verify Checksums
-        run: |
-          for dir in native-libs/native-*; do
-            if [ -f "$dir/checksums.txt" ]; then
-              cd "$dir"
-              if [ -f "*.so" ]; then
-                sha256sum -c checksums.txt
-              elif [ -f "*.dylib" ]; then
-                shasum -a 256 -c checksums.txt
-              fi
-              cd ../..
-            fi
-          done
-        shell: bash
-
-      - name: Set up Java for publishing to Maven Central
+      - name: Set up Java
         uses: actions/setup-java@v3
         with:
           java-version: '22'
           distribution: 'temurin'
-          cache: maven
           server-id: maven
           server-username: MAVEN_USERNAME
           server-password: MAVEN_PASSWORD
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
 
-      - name: Organize Native Libraries
+      - name: Download All Native Libraries
+        uses: actions/download-artifact@v3
+        with:
+          path: native-libs
+
+      - name: Copy Native Libraries
         run: |
           # Create resource directories
           mkdir -p src/main/resources/io/github/innobridge/llama/client/Linux/x86_64
           mkdir -p src/main/resources/io/github/innobridge/llama/client/Mac/aarch64
+          
+          # Copy Linux libraries
+          if [ -d "native-libs/native-Linux-x86_64" ]; then
+            cp -r native-libs/native-Linux-x86_64/* src/main/resources/io/github/innobridge/llama/client/Linux/x86_64/
+          fi
+          
+          # Copy Mac libraries
+          if [ -d "native-libs/native-Mac-aarch64" ]; then
+            cp -r native-libs/native-Mac-aarch64/* src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/
+          fi
 
-          # Copy Linux x86_64 libraries
-          cp native-libs/native-Linux-x86_64/build/lib/*.so src/main/resources/io/github/innobridge/llama/client/Linux/x86_64/
-
-          # Copy macOS ARM64 libraries
-          cp native-libs/native-Mac-aarch64/build/lib/*.dylib src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/
-          cp src/main/resources/ggml-metal.metal src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/
-
-      - name: Publish to Maven Central
+      - name: Build and Deploy
         env:
-          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
-          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+          MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: |
-          mvn \
-            --no-transfer-progress \
-            --batch-mode \
-            -Dgpg.passphrase=${{ secrets.GPG_PASSPHRASE }} \
-            -P release \
-            clean deploy
+        run: mvn -B clean deploy -Prelease --no-transfer-progress
