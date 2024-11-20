@@ -1,34 +1,231 @@
-name: Publish to Maven Central
+name: Deploy to Maven Central
+
 on:
   release:
     types: [created]
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish'
+        required: true
 
 jobs:
-  publish:
-    runs-on: macos-latest
+  build-natives:
+    strategy:
+      matrix:
+        include:
+          - platform: Linux
+            os: ubuntu-latest
+            arch: x86_64
+          - platform: Linux
+            os: ubuntu-latest
+            arch: aarch64
+          - platform: Mac
+            os: macos-latest
+            arch: aarch64
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           submodules: recursive
-          
-      - name: Set up JDK
-        uses: actions/setup-java@v4
+
+      - name: Install CMake (macOS)
+        if: runner.os == 'macOS'
+        run: brew install cmake
+
+      - name: Set up QEMU
+        if: runner.os == 'Linux' && matrix.arch == 'aarch64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Build Native Library (Linux x86_64)
+        if: runner.os == 'Linux' && matrix.arch == 'x86_64'
+        run: |
+          mkdir -p build
+          cd build
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLAMA_STATIC=ON \
+            -DLLAMA_BLAS=ON \
+            -DLLAMA_BUILD_EXAMPLES=OFF \
+            -DLLAMA_BUILD_TESTS=OFF \
+            -DLLAMA_METAL=OFF \
+            -DLLAMA_NATIVE=OFF
+          cmake --build . --config Release --verbose
+
+      - name: Build Native Library (Linux ARM64)
+        if: runner.os == 'Linux' && matrix.arch == 'aarch64'
+        run: |
+          docker run --rm --platform linux/arm64 -v ${{ github.workspace }}:/workspace -w /workspace ubuntu:latest /bin/bash -c '
+            apt-get update && \
+            apt-get install -y cmake build-essential git default-jdk && \
+            mkdir -p build && \
+            cd build && \
+            cmake .. \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DLLAMA_STATIC=ON \
+              -DLLAMA_BLAS=ON \
+              -DLLAMA_BUILD_EXAMPLES=OFF \
+              -DLLAMA_BUILD_TESTS=OFF \
+              -DLLAMA_METAL=OFF \
+              -DLLAMA_NATIVE=OFF && \
+            cmake --build . --config Release --verbose
+          '
+          # Fix permissions after Docker build
+          sudo chown -R $(id -u):$(id -g) src/main/resources/io/github/innobridge/llama/client
+
+      - name: Build Native Library (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p build
+          cd build
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLAMA_STATIC=ON \
+            -DLLAMA_BLAS=ON \
+            -DLLAMA_BUILD_EXAMPLES=OFF \
+            -DLLAMA_BUILD_TESTS=OFF \
+            -DLLAMA_METAL=ON \
+            -DLLAMA_NATIVE=OFF \
+            -DCMAKE_OSX_ARCHITECTURES=arm64
+          cmake --build . --config Release --verbose
+
+      - name: Copy Metal Shader (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p src/main/resources/io/github/innobridge/llama/client/Mac/aarch64
+          # First try to find the metal shader file in build directory
+          METAL_FILE=$(find build/_deps -name "ggml-metal.metal" -type f | head -n 1)
+          if [ -z "$METAL_FILE" ]; then
+            # If not found in build deps, try the source directory
+            METAL_FILE=$(find . -name "ggml-metal.metal" -type f | head -n 1)
+          fi
+          if [ -n "$METAL_FILE" ]; then
+            echo "Found metal shader at: $METAL_FILE"
+            cp "$METAL_FILE" src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/
+            ls -l src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/ggml-metal.metal
+          else
+            echo "Error: Could not find ggml-metal.metal"
+            exit 1
+          fi
+
+      - name: Copy Native Libraries
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            TARGET_DIR="src/main/resources/io/github/innobridge/llama/client/Linux/${{ matrix.arch }}"
+            mkdir -p "$TARGET_DIR"
+            # Find and copy Linux libraries
+            for lib in libjllama.so libllama.so libggml.so; do
+              if [ ! -f "$TARGET_DIR/$lib" ]; then
+                LIB_FILE=$(find build -type f -name "$lib" 2>/dev/null || find . -type f -name "$lib" 2>/dev/null | grep -v "/\\.git/" | head -n 1)
+                if [ -n "$LIB_FILE" ]; then
+                  echo "Found $lib at: $LIB_FILE"
+                  cp "$LIB_FILE" "$TARGET_DIR/"
+                else
+                  echo "Error: Could not find $lib"
+                  find . -type f -name "*.so" 2>/dev/null | grep -v "/\\.git/"
+                  exit 1
+                fi
+              else
+                echo "Library $lib already exists in $TARGET_DIR"
+              fi
+            done
+          else
+            TARGET_DIR="src/main/resources/io/github/innobridge/llama/client/Mac/aarch64"
+            mkdir -p "$TARGET_DIR"
+            # Find and copy Mac libraries
+            for lib in libjllama.dylib libllama.dylib libggml.dylib; do
+              if [ ! -f "$TARGET_DIR/$lib" ]; then
+                LIB_FILE=$(find build -type f -name "$lib" 2>/dev/null || find . -type f -name "$lib" 2>/dev/null | grep -v "/\\.git/" | head -n 1)
+                if [ -n "$LIB_FILE" ]; then
+                  echo "Found $lib at: $LIB_FILE"
+                  cp "$LIB_FILE" "$TARGET_DIR/"
+                else
+                  echo "Error: Could not find $lib"
+                  echo "Available dylib files:"
+                  find . -type f -name "*.dylib" 2>/dev/null | grep -v "/\\.git/"
+                  exit 1
+                fi
+              else
+                echo "Library $lib already exists in $TARGET_DIR"
+              fi
+            done
+          fi
+
+      - name: Generate Checksums
+        run: |
+          cd src/main/resources/io/github/innobridge/llama/client
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            find Linux -type f -name "*.so" -exec sha256sum {} \; > checksums.txt
+          else
+            find Mac -type f -name "*.dylib" -exec shasum -a 256 {} \; > checksums.txt
+          fi
+        shell: bash
+
+      - name: Upload Native Library
+        uses: actions/upload-artifact@v3
+        with:
+          name: native-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            src/main/resources/io/github/innobridge/llama/client/${{ matrix.platform }}/${{ matrix.arch }}
+            src/main/resources/io/github/innobridge/llama/client/checksums.txt
+
+  publish:
+    needs: build-natives
+    runs-on: ubuntu-latest
+    steps:
+      - name: Step 1 - Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Step 2 - Import GPG Key
+        run: |
+          echo "${{ secrets.GPG_PUBLIC_KEY }}" | gpg --import
+          echo "${{ secrets.GPG_SECRET_KEY }}" | gpg --import --no-tty --batch --yes
+        env:
+          GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
+          GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
+
+      - name: Step 3 - Set up Maven Central Repository
+        uses: actions/setup-java@v3
         with:
           java-version: '22'
-          distribution: 'oracle'
-          server-id: ossrh
+          distribution: 'temurin'
+          server-id: central
           server-username: MAVEN_USERNAME
           server-password: MAVEN_PASSWORD
-          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-private-key: ${{ secrets.GPG_SECRET_KEY }}
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Download All Native Libraries
+        uses: actions/download-artifact@v3
+        with:
+          path: native-libs
+
+      - name: Copy Native Libraries to Resources
+        run: |
+          # Create target directory
+          mkdir -p src/main/resources/io/github/innobridge/llama/client
           
-      - name: Install CMake
-        run: brew install cmake
-        
-      - name: Build with Maven
+          # Copy all platform libraries to resources
+          cp -r native-libs/native-Linux-x86_64/* src/main/resources/io/github/innobridge/llama/client/
+          cp -r native-libs/native-Linux-aarch64/* src/main/resources/io/github/innobridge/llama/client/
+          cp -r native-libs/native-Mac-aarch64/* src/main/resources/io/github/innobridge/llama/client/
+          
+          # List all copied files
+          echo "Copied native libraries:"
+          find src/main/resources -type f
+
+      - name: Step 4 - Publish Package to Maven Central
         env:
-          MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-          MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: mvn --batch-mode deploy
+        run: |
+          # Verify resources are in place
+          find src/main/resources -type f
+          # Deploy to Maven Central
+          mvn clean deploy -P release -DskipTests --batch-mode

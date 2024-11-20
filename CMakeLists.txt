@@ -29,33 +29,29 @@ FetchContent_MakeAvailable(llama.cpp)
 
 #################### jllama ####################
 
-# find which OS we build for if not set (make sure to run mvn compile first)
-if(NOT DEFINED OS_NAME)
-    find_package(Java REQUIRED)
-    find_program(JAVA_EXECUTABLE NAMES java)
-	execute_process(
-      COMMAND ${JAVA_EXECUTABLE} -cp ${CMAKE_SOURCE_DIR}/target/classes io.github.innobridge.llama.client.OSInfo --os
-      OUTPUT_VARIABLE OS_NAME
-      OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-endif()
-if(NOT OS_NAME)
-    message(FATAL_ERROR "Could not determine OS name")
+# Determine OS and architecture using CMake's built-in variables
+if(APPLE)
+    set(OS_NAME "Mac")
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+        set(OS_ARCH "aarch64")
+    else()
+        set(OS_ARCH "x86_64")
+    endif()
+elseif(WIN32)
+    set(OS_NAME "Windows")
+    set(OS_ARCH "x86_64")
+elseif(UNIX AND NOT APPLE)
+    set(OS_NAME "Linux")
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+        set(OS_ARCH "aarch64")
+    else()
+        set(OS_ARCH "x86_64")
+    endif()
+else()
+    message(FATAL_ERROR "Unsupported operating system")
 endif()
 
-# find which architecture we build for if not set  (make sure to run mvn compile first)
-if(NOT DEFINED OS_ARCH)
-    find_package(Java REQUIRED)
-    find_program(JAVA_EXECUTABLE NAMES java)
-    execute_process(
-      COMMAND ${JAVA_EXECUTABLE} -cp ${CMAKE_SOURCE_DIR}/target/classes io.github.innobridge.llama.client.OSInfo --arch
-      OUTPUT_VARIABLE OS_ARCH
-      OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-endif()
-if(NOT OS_ARCH)
-    message(FATAL_ERROR "Could not determine CPU architecture")
-endif()
+message(STATUS "Building for ${OS_NAME} ${OS_ARCH}")
 
 if(GGML_CUDA)
     set(JLLAMA_DIR ${CMAKE_SOURCE_DIR}/src/main/resources_linux_cuda/io/github/innobridge/llama/client/${OS_NAME}/${OS_ARCH})
@@ -65,36 +61,17 @@ else()
     message(STATUS "CPU build - Installing files to ${JLLAMA_DIR}")
 endif()
 
+# Create output directories
+file(MAKE_DIRECTORY ${JLLAMA_DIR})
+
 # include jni.h and jni_md.h
 if(NOT DEFINED JNI_INCLUDE_DIRS)
-    if(OS_NAME MATCHES "^Linux" OR OS_NAME STREQUAL "Mac")
-        set(JNI_INCLUDE_DIRS .github/include/unix)
-    elseif(OS_NAME STREQUAL "Windows")
-        set(JNI_INCLUDE_DIRS .github/include/windows)
-    # if we don't have provided headers, try to find them via Java
-    else()
-        find_package(Java REQUIRED)
-        find_program(JAVA_EXECUTABLE NAMES java)
-
-        find_path(JNI_INCLUDE_DIRS NAMES jni.h HINTS ENV JAVA_HOME PATH_SUFFIXES include)
-
-        # find "jni_md.h" include directory if not set
-        file(GLOB_RECURSE JNI_MD_PATHS RELATIVE "${JNI_INCLUDE_DIRS}" "${JNI_INCLUDE_DIRS}/**/jni_md.h")
-        foreach(PATH IN LISTS JNI_MD_PATHS)
-            get_filename_component(DIR ${PATH} DIRECTORY)
-            list(APPEND JNI_INCLUDE_DIRS "${JNI_INCLUDE_DIRS}/${DIR}")
-        endforeach()
-    endif()
-endif()
-if(NOT JNI_INCLUDE_DIRS)
-    message(FATAL_ERROR "Could not determine JNI include directories")
+    find_package(Java REQUIRED)
+    find_package(JNI REQUIRED)
 endif()
 
 # Add JNI include paths
-include_directories(
-    "/Library/Java/JavaVirtualMachines/jdk-22.jdk/Contents/Home/include"
-    "/Library/Java/JavaVirtualMachines/jdk-22.jdk/Contents/Home/include/darwin"
-)
+include_directories(${JAVA_INCLUDE_PATH} ${JAVA_INCLUDE_PATH2})
 
 add_library(jllama SHARED src/main/cpp/jllama.cpp src/main/cpp/server.hpp src/main/cpp/utils.hpp)
 
@@ -118,7 +95,11 @@ else()
 	)
 endif()
 
-if (LLAMA_METAL AND NOT LLAMA_METAL_EMBED_LIBRARY)
-    # copy ggml-common.h and ggml-metal.metal to bin directory
-    configure_file(${llama.cpp_SOURCE_DIR}/ggml-metal.metal ${JLLAMA_DIR}/ggml-metal.metal COPYONLY)
+if (LLAMA_METAL)
+    # Create Metal shader directory if needed
+    file(MAKE_DIRECTORY ${JLLAMA_DIR})
+    # copy ggml-metal.metal to output directory
+    configure_file(${llama.cpp_SOURCE_DIR}/ggml/src/ggml-metal.metal ${JLLAMA_DIR}/ggml-metal.metal COPYONLY)
+    # Also copy to resources directory for development
+    configure_file(${llama.cpp_SOURCE_DIR}/ggml/src/ggml-metal.metal ${CMAKE_SOURCE_DIR}/src/main/resources/ggml-metal.metal COPYONLY)
 endif()
