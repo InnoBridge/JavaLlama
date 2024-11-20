@@ -35,7 +35,7 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          cmake ../src/main/cpp \
+          cmake .. \
             -DCMAKE_BUILD_TYPE=Release \
             -DLLAMA_STATIC=ON \
             -DBUILD_SHARED_LIBS=OFF \
@@ -50,7 +50,7 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          cmake ../src/main/cpp \
+          cmake .. \
             -DCMAKE_BUILD_TYPE=Release \
             -DLLAMA_STATIC=ON \
             -DBUILD_SHARED_LIBS=OFF \
