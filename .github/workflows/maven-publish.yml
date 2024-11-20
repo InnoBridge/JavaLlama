@@ -85,14 +85,30 @@ jobs:
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
             mkdir -p src/main/resources/io/github/innobridge/llama/client/Linux/x86_64
-            cp build/libjllama.so src/main/resources/io/github/innobridge/llama/client/Linux/x86_64/
-            cp build/libllama.so src/main/resources/io/github/innobridge/llama/client/Linux/x86_64/
-            cp build/libggml.so src/main/resources/io/github/innobridge/llama/client/Linux/x86_64/
+            # Find and copy Linux libraries
+            for lib in libjllama.so libllama.so libggml.so; do
+              LIB_FILE=$(find build -name "$lib" -type f | head -n 1)
+              if [ -n "$LIB_FILE" ]; then
+                echo "Found $lib at: $LIB_FILE"
+                cp "$LIB_FILE" src/main/resources/io/github/innobridge/llama/client/Linux/x86_64/
+              else
+                echo "Error: Could not find $lib"
+                exit 1
+              fi
+            done
           else
             mkdir -p src/main/resources/io/github/innobridge/llama/client/Mac/aarch64
-            cp build/libjllama.dylib src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/
-            cp build/libllama.dylib src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/
-            cp build/libggml.dylib src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/
+            # Find and copy Mac libraries
+            for lib in libjllama.dylib libllama.dylib libggml.dylib; do
+              LIB_FILE=$(find build -name "$lib" -type f | head -n 1)
+              if [ -n "$LIB_FILE" ]; then
+                echo "Found $lib at: $LIB_FILE"
+                cp "$LIB_FILE" src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/
+              else
+                echo "Error: Could not find $lib"
+                exit 1
+              fi
+            done
           fi
 
       - name: Generate Checksums
