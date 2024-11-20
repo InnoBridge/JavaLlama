@@ -87,12 +87,13 @@ jobs:
             mkdir -p src/main/resources/io/github/innobridge/llama/client/Linux/x86_64
             # Find and copy Linux libraries
             for lib in libjllama.so libllama.so libggml.so; do
-              LIB_FILE=$(find build -name "$lib" -type f | head -n 1)
+              LIB_FILE=$(find build -type f -name "$lib" 2>/dev/null || find . -type f -name "$lib" 2>/dev/null | grep -v "/\\.git/" | head -n 1)
               if [ -n "$LIB_FILE" ]; then
                 echo "Found $lib at: $LIB_FILE"
                 cp "$LIB_FILE" src/main/resources/io/github/innobridge/llama/client/Linux/x86_64/
               else
                 echo "Error: Could not find $lib"
+                find . -type f -name "*.so" 2>/dev/null | grep -v "/\\.git/"
                 exit 1
               fi
             done
@@ -100,12 +101,14 @@ jobs:
             mkdir -p src/main/resources/io/github/innobridge/llama/client/Mac/aarch64
             # Find and copy Mac libraries
             for lib in libjllama.dylib libllama.dylib libggml.dylib; do
-              LIB_FILE=$(find build -name "$lib" -type f | head -n 1)
+              LIB_FILE=$(find build -type f -name "$lib" 2>/dev/null || find . -type f -name "$lib" 2>/dev/null | grep -v "/\\.git/" | head -n 1)
               if [ -n "$LIB_FILE" ]; then
                 echo "Found $lib at: $LIB_FILE"
                 cp "$LIB_FILE" src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/
               else
                 echo "Error: Could not find $lib"
+                echo "Available dylib files:"
+                find . -type f -name "*.dylib" 2>/dev/null | grep -v "/\\.git/"
                 exit 1
               fi
             done
