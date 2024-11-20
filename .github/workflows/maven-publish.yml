@@ -74,7 +74,7 @@ jobs:
             cmake --build . --config Release --verbose
           '
           # Fix permissions after Docker build
-          sudo chown -R $(id -u):$(id -g) src/main/resources/io/github/innobridge/llama/client/Linux
+          sudo chown -R $(id -u):$(id -g) src/main/resources/io/github/innobridge/llama/client
 
       - name: Build Native Library (macOS)
         if: runner.os == 'macOS'
