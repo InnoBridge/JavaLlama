@@ -73,6 +73,8 @@ jobs:
               -DLLAMA_NATIVE=OFF && \
             cmake --build . --config Release --verbose
           '
+          # Fix permissions after Docker build
+          sudo chown -R $(id -u):$(id -g) src/main/resources/io/github/innobridge/llama/client/Linux
 
       - name: Build Native Library (macOS)
         if: runner.os == 'macOS'
