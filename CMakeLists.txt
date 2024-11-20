@@ -95,9 +95,11 @@ else()
 	)
 endif()
 
-if (LLAMA_METAL AND NOT LLAMA_METAL_EMBED_LIBRARY)
+if (LLAMA_METAL)
     # Create Metal shader directory if needed
     file(MAKE_DIRECTORY ${JLLAMA_DIR})
     # copy ggml-metal.metal to output directory
     configure_file(${llama.cpp_SOURCE_DIR}/ggml/src/ggml-metal.metal ${JLLAMA_DIR}/ggml-metal.metal COPYONLY)
+    # Also copy to resources directory for development
+    configure_file(${llama.cpp_SOURCE_DIR}/ggml/src/ggml-metal.metal ${CMAKE_SOURCE_DIR}/src/main/resources/ggml-metal.metal COPYONLY)
 endif()

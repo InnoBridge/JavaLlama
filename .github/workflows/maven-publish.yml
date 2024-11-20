@@ -62,6 +62,26 @@ jobs:
             -DCMAKE_OSX_ARCHITECTURES=arm64
           cmake --build . --config Release --verbose
 
+      - name: Copy Metal Shader (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p src/main/resources/io/github/innobridge/llama/client/Mac/aarch64
+          cp build/llama.cpp/ggml/src/ggml-metal.metal src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/
+
+      - name: Copy Native Libraries
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            mkdir -p src/main/resources/io/github/innobridge/llama/client/Linux/x86_64
+            cp build/libjllama.so src/main/resources/io/github/innobridge/llama/client/Linux/x86_64/
+            cp build/libllama.so src/main/resources/io/github/innobridge/llama/client/Linux/x86_64/
+            cp build/libggml.so src/main/resources/io/github/innobridge/llama/client/Linux/x86_64/
+          else
+            mkdir -p src/main/resources/io/github/innobridge/llama/client/Mac/aarch64
+            cp build/libjllama.dylib src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/
+            cp build/libllama.dylib src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/
+            cp build/libggml.dylib src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/
+          fi
+
       - name: Generate Checksums
         run: |
           cd src/main/resources/io/github/innobridge/llama/client
@@ -113,25 +133,13 @@ jobs:
         with:
           path: native-libs
 
-      - name: Copy Native Libraries
-        run: |
-          # Create resource directories
-          mkdir -p src/main/resources/io/github/innobridge/llama/client/Linux/x86_64
-          mkdir -p src/main/resources/io/github/innobridge/llama/client/Mac/aarch64
-          
-          # Copy Linux libraries
-          if [ -d "native-libs/native-Linux-x86_64" ]; then
-            cp -r native-libs/native-Linux-x86_64/* src/main/resources/io/github/innobridge/llama/client/Linux/x86_64/
-          fi
-          
-          # Copy Mac libraries
-          if [ -d "native-libs/native-Mac-aarch64" ]; then
-            cp -r native-libs/native-Mac-aarch64/* src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/
-          fi
-
       - name: Step 4 - Publish Package to Maven Central
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: mvn clean deploy -P release -DskipTests --batch-mode
+        run: |
+          # Verify resources are in place
+          find src/main/resources -type f
+          # Deploy to Maven Central
+          mvn clean deploy -P release -DskipTests --batch-mode
