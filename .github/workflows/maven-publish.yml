@@ -84,32 +84,42 @@ jobs:
       - name: Copy Native Libraries
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
-            mkdir -p src/main/resources/io/github/innobridge/llama/client/Linux/x86_64
+            TARGET_DIR="src/main/resources/io/github/innobridge/llama/client/Linux/x86_64"
+            mkdir -p "$TARGET_DIR"
             # Find and copy Linux libraries
             for lib in libjllama.so libllama.so libggml.so; do
-              LIB_FILE=$(find build -type f -name "$lib" 2>/dev/null || find . -type f -name "$lib" 2>/dev/null | grep -v "/\\.git/" | head -n 1)
-              if [ -n "$LIB_FILE" ]; then
-                echo "Found $lib at: $LIB_FILE"
-                cp "$LIB_FILE" src/main/resources/io/github/innobridge/llama/client/Linux/x86_64/
+              if [ ! -f "$TARGET_DIR/$lib" ]; then
+                LIB_FILE=$(find build -type f -name "$lib" 2>/dev/null || find . -type f -name "$lib" 2>/dev/null | grep -v "/\\.git/" | head -n 1)
+                if [ -n "$LIB_FILE" ]; then
+                  echo "Found $lib at: $LIB_FILE"
+                  cp "$LIB_FILE" "$TARGET_DIR/"
+                else
+                  echo "Error: Could not find $lib"
+                  find . -type f -name "*.so" 2>/dev/null | grep -v "/\\.git/"
+                  exit 1
+                fi
               else
-                echo "Error: Could not find $lib"
-                find . -type f -name "*.so" 2>/dev/null | grep -v "/\\.git/"
-                exit 1
+                echo "Library $lib already exists in $TARGET_DIR"
               fi
             done
           else
-            mkdir -p src/main/resources/io/github/innobridge/llama/client/Mac/aarch64
+            TARGET_DIR="src/main/resources/io/github/innobridge/llama/client/Mac/aarch64"
+            mkdir -p "$TARGET_DIR"
             # Find and copy Mac libraries
             for lib in libjllama.dylib libllama.dylib libggml.dylib; do
-              LIB_FILE=$(find build -type f -name "$lib" 2>/dev/null || find . -type f -name "$lib" 2>/dev/null | grep -v "/\\.git/" | head -n 1)
-              if [ -n "$LIB_FILE" ]; then
-                echo "Found $lib at: $LIB_FILE"
-                cp "$LIB_FILE" src/main/resources/io/github/innobridge/llama/client/Mac/aarch64/
+              if [ ! -f "$TARGET_DIR/$lib" ]; then
+                LIB_FILE=$(find build -type f -name "$lib" 2>/dev/null || find . -type f -name "$lib" 2>/dev/null | grep -v "/\\.git/" | head -n 1)
+                if [ -n "$LIB_FILE" ]; then
+                  echo "Found $lib at: $LIB_FILE"
+                  cp "$LIB_FILE" "$TARGET_DIR/"
+                else
+                  echo "Error: Could not find $lib"
+                  echo "Available dylib files:"
+                  find . -type f -name "*.dylib" 2>/dev/null | grep -v "/\\.git/"
+                  exit 1
+                fi
               else
-                echo "Error: Could not find $lib"
-                echo "Available dylib files:"
-                find . -type f -name "*.dylib" 2>/dev/null | grep -v "/\\.git/"
-                exit 1
+                echo "Library $lib already exists in $TARGET_DIR"
               fi
             done
           fi
