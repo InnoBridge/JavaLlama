@@ -66,6 +66,14 @@
  </dependencies>
 
 	<build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <includes>
+          <include>**/*</include>
+        </includes>
+      </resource>
+    </resources>
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -133,14 +141,15 @@
               <goal>copy-resources</goal>
             </goals>
             <configuration>
-              <outputDirectory>${project.build.outputDirectory}/native</outputDirectory>
+              <outputDirectory>${project.build.outputDirectory}/io/github/innobridge/llama/client</outputDirectory>
               <resources>
                 <resource>
-                  <directory>${native.target.dir}</directory>
+                  <directory>src/main/resources/io/github/innobridge/llama/client</directory>
                   <includes>
                     <include>**/*.dll</include>
                     <include>**/*.so</include>
                     <include>**/*.dylib</include>
+                    <include>**/*.metal</include>
                   </includes>
                 </resource>
               </resources>

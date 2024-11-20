@@ -175,6 +175,19 @@ jobs:
         with:
           path: native-libs
 
+      - name: Copy Native Libraries to Resources
+        run: |
+          # Create target directory
+          mkdir -p src/main/resources/io/github/innobridge/llama/client
+          
+          # Copy all platform libraries to resources
+          cp -r native-libs/native-Linux-x86_64/* src/main/resources/io/github/innobridge/llama/client/
+          cp -r native-libs/native-Mac-aarch64/* src/main/resources/io/github/innobridge/llama/client/
+          
+          # List all copied files
+          echo "Copied native libraries:"
+          find src/main/resources -type f
+
       - name: Step 4 - Publish Package to Maven Central
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
