@@ -17,6 +17,9 @@ jobs:
           - platform: Linux
             os: ubuntu-latest
             arch: x86_64
+          - platform: Linux
+            os: ubuntu-latest
+            arch: aarch64
           - platform: Mac
             os: macos-latest
             arch: aarch64
@@ -33,6 +36,21 @@ jobs:
 
       - name: Build Native Library (Linux x86_64)
         if: runner.os == 'Linux' && matrix.arch == 'x86_64'
+        run: |
+          mkdir -p build
+          cd build
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLAMA_STATIC=ON \
+            -DLLAMA_BLAS=ON \
+            -DLLAMA_BUILD_EXAMPLES=OFF \
+            -DLLAMA_BUILD_TESTS=OFF \
+            -DLLAMA_METAL=OFF \
+            -DLLAMA_NATIVE=OFF
+          cmake --build . --config Release --verbose
+
+      - name: Build Native Library (Linux ARM64)
+        if: runner.os == 'Linux' && matrix.arch == 'aarch64'
         run: |
           mkdir -p build
           cd build
@@ -84,7 +102,7 @@ jobs:
       - name: Copy Native Libraries
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
-            TARGET_DIR="src/main/resources/io/github/innobridge/llama/client/Linux/x86_64"
+            TARGET_DIR="src/main/resources/io/github/innobridge/llama/client/Linux/${{ matrix.arch }}"
             mkdir -p "$TARGET_DIR"
             # Find and copy Linux libraries
             for lib in libjllama.so libllama.so libggml.so; do
@@ -182,6 +200,7 @@ jobs:
           
           # Copy all platform libraries to resources
           cp -r native-libs/native-Linux-x86_64/* src/main/resources/io/github/innobridge/llama/client/
+          cp -r native-libs/native-Linux-aarch64/* src/main/resources/io/github/innobridge/llama/client/
           cp -r native-libs/native-Mac-aarch64/* src/main/resources/io/github/innobridge/llama/client/
           
           # List all copied files
