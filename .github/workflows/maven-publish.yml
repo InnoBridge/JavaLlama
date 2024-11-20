@@ -34,6 +34,12 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install cmake
 
+      - name: Set up QEMU
+        if: runner.os == 'Linux' && matrix.arch == 'aarch64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
       - name: Build Native Library (Linux x86_64)
         if: runner.os == 'Linux' && matrix.arch == 'x86_64'
         run: |
@@ -52,17 +58,21 @@ jobs:
       - name: Build Native Library (Linux ARM64)
         if: runner.os == 'Linux' && matrix.arch == 'aarch64'
         run: |
-          mkdir -p build
-          cd build
-          cmake .. \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DLLAMA_STATIC=ON \
-            -DLLAMA_BLAS=ON \
-            -DLLAMA_BUILD_EXAMPLES=OFF \
-            -DLLAMA_BUILD_TESTS=OFF \
-            -DLLAMA_METAL=OFF \
-            -DLLAMA_NATIVE=OFF
-          cmake --build . --config Release --verbose
+          docker run --rm --platform linux/arm64 -v ${{ github.workspace }}:/workspace -w /workspace ubuntu:latest /bin/bash -c '
+            apt-get update && \
+            apt-get install -y cmake build-essential && \
+            mkdir -p build && \
+            cd build && \
+            cmake .. \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DLLAMA_STATIC=ON \
+              -DLLAMA_BLAS=ON \
+              -DLLAMA_BUILD_EXAMPLES=OFF \
+              -DLLAMA_BUILD_TESTS=OFF \
+              -DLLAMA_METAL=OFF \
+              -DLLAMA_NATIVE=OFF && \
+            cmake --build . --config Release --verbose
+          '
 
       - name: Build Native Library (macOS)
         if: runner.os == 'macOS'
