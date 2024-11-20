@@ -2,53 +2,61 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<parent>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.2.6</version>
-		<relativePath/> <!-- lookup parent from repository -->
-	</parent>
 	<groupId>io.github.innobridge</groupId>
 	<artifactId>llama</artifactId>
-	<version>0.0.2-SNAPSHOT</version>
-	<name>JavaLlama</name>
+	<version>0.0.1</version>
+    <name>${project.groupId}:${project.artifactId}</name>
 	<description>Java bindings for llama.cpp</description>
 	<url>https://github.com/innobridge/JavaLlama</url>
-	<licenses>
-		<license>
-			<name>MIT License</name>
-			<url>http://www.opensource.org/licenses/mit-license.php</url>
-		</license>
-	</licenses>
-	<developers>
-		<developer>
-			<name>Yileng Yao</name>
-			<email>yileng.yao@innobridge.io</email>
-			<organization>Innobridge</organization>
-			<organizationUrl>https://github.com/innobridge</organizationUrl>
-		</developer>
-	</developers>
+
+    <licenses>
+        <license>
+            <name>InnoBridge License Version 1.0</name>
+            <url>https://github.com/InnoBridge/License/blob/main/InnoBridgeLicense</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>YilengYao</id>
+            <name>Yileng Yao</name>
+            <email>yilengyao@gmail.com</email>
+            <organization>InnoBridgeTechnology</organization>
+        </developer>
+    </developers>
+
 	<scm>
 		<connection>scm:git:git://github.com/innobridge/JavaLlama.git</connection>
 		<developerConnection>scm:git:ssh://github.com:innobridge/JavaLlama.git</developerConnection>
 		<url>https://github.com/innobridge/JavaLlama/tree/main</url>
 	</scm>
-	<distributionManagement>
-		<snapshotRepository>
-			<id>ossrh</id>
-			<url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
-		</snapshotRepository>
-		<repository>
-			<id>ossrh</id>
-			<url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-		</repository>
-	</distributionManagement>
+
+    <distributionManagement>
+        <repository>
+            <id>central</id>
+            <name>Maven Central</name>
+            <url>https://repo1.maven.org/maven2/</url>
+        </repository>
+    </distributionManagement>
+
 	<properties>
 		<java.version>22</java.version>
-    <jna.version>5.13.0</jna.version>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <jna.version>5.13.0</jna.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <native.target.dir>${project.build.directory}/native-lib</native.target.dir>
 	</properties>
+
 	<dependencies>
+    <dependency>
+      <groupId>net.java.dev.jna</groupId>
+      <artifactId>jna</artifactId>
+      <version>${jna.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>net.java.dev.jna</groupId>
+      <artifactId>jna-platform</artifactId>
+      <version>${jna.version}</version>
+    </dependency>
   	<dependency>
 			<groupId>org.jetbrains</groupId>
 			<artifactId>annotations</artifactId>
@@ -63,55 +71,84 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.13.0</version>
-				<executions>
-					<!-- We have to perform a separate build pass for cuda classifier -->
-					<execution>
-						<id>gpu</id>
-						<phase>compile</phase>
-						<goals><goal>compile</goal></goals>
-						<configuration>
-							<compilerArgs>
-								<arg>-h</arg>
-								<arg>src/main/cpp</arg>
-							</compilerArgs>
-							<outputDirectory>${project.build.outputDirectory}_cuda</outputDirectory>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-      <plugin>
-				<artifactId>maven-resources-plugin</artifactId>
-				<version>3.3.1</version>
-				<executions>
-					<!-- Copy custom cuda libs to the output directory -->
-					<execution>
-						<id>copy-resources</id>
-						<phase>process-classes</phase>
-						<goals>
-							<goal>copy-resources</goal>
-						</goals>
-						<configuration>
-							<outputDirectory>${project.build.outputDirectory}_cuda</outputDirectory>
-							<resources>
-								<resource>
-									<directory>${basedir}/src/main/resources_linux_cuda/</directory>
-									<includes>
-										<include>**/*.*</include>
-									</includes>
-								</resource>
-							</resources>
-						</configuration>
-					</execution>
-				</executions>
+        <configuration>
+          <source>${java.version}</source>
+          <target>${java.version}</target>
+        </configuration>
 			</plugin>
 
-			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-         <configuration>
-        <skip>true</skip>  <!-- Add this line -->
-      </configuration>
-			</plugin>
+      <!-- Native library compilation -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.1.1</version>
+        <executions>
+          <execution>
+            <id>cmake-generate</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>cmake</executable>
+              <workingDirectory>${native.target.dir}</workingDirectory>
+              <arguments>
+                <argument>-DCMAKE_BUILD_TYPE=Release</argument>
+                <argument>-S</argument>
+                <argument>${project.basedir}</argument>
+                <argument>-B</argument>
+                <argument>${native.target.dir}</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <execution>
+            <id>cmake-build</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>cmake</executable>
+              <workingDirectory>${native.target.dir}</workingDirectory>
+              <arguments>
+                <argument>--build</argument>
+                <argument>.</argument>
+                <argument>--config</argument>
+                <argument>Release</argument>
+              </arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Copy native libraries to resources -->
+      <plugin>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.3.1</version>
+        <executions>
+          <execution>
+            <id>copy-native-libraries</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.build.outputDirectory}/native</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${native.target.dir}</directory>
+                  <includes>
+                    <include>**/*.dll</include>
+                    <include>**/*.so</include>
+                    <include>**/*.dylib</include>
+                  </includes>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
 			<plugin>
 				<groupId>org.sonatype.plugins</groupId>
 				<artifactId>nexus-staging-maven-plugin</artifactId>
@@ -149,6 +186,7 @@
 					</execution>
 				</executions>
 			</plugin>
+      <!-- GPG Signed Components -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-gpg-plugin</artifactId>
@@ -171,5 +209,61 @@
 			</plugin>
 		</plugins>
 	</build>
+
+  <profiles>
+    <profile>
+      <id>release</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <version>3.3.0</version>
+            <executions>
+              <execution>
+                <id>attach-sources</id>
+                <goals>
+                  <goal>jar-no-fork</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <version>3.6.3</version>
+            <executions>
+              <execution>
+                <id>attach-javadocs</id>
+                <goals>
+                  <goal>jar</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>3.1.0</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>sign</goal>
+                </goals>
+                <configuration>
+                  <gpgArguments>
+                    <arg>--pinentry-mode</arg>
+                    <arg>loopback</arg>
+                  </gpgArguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 
 </project>
