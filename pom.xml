@@ -40,10 +40,13 @@
     </distributionManagement>
 
 	<properties>
-		<java.version>22</java.version>
+		<maven.javadoc.skip>true</maven.javadoc.skip>
+        <maven.compiler.source>22</maven.compiler.source>
+        <maven.compiler.target>22</maven.compiler.target>
         <jna.version>5.13.0</jna.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <native.target.dir>${project.build.directory}/native-lib</native.target.dir>
+        <ggml.cuda>true</ggml.cuda>
 	</properties>
 
 	<dependencies>
@@ -79,10 +82,28 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.13.0</version>
-        <configuration>
-          <source>${java.version}</source>
-          <target>${java.version}</target>
-        </configuration>
+				<configuration>
+          <source>${maven.compiler.source}</source>
+          <target>${maven.compiler.target}</target>
+					<fork>true</fork>
+					<executable>/usr/lib/jvm/jdk-22/bin/javac</executable>
+					<compilerVersion>22</compilerVersion>
+				</configuration>
+				<executions>
+					<!-- We have to perform a separate build pass for cuda classifier -->
+					<execution>
+						<id>gpu</id>
+						<phase>compile</phase>
+						<goals><goal>compile</goal></goals>
+						<configuration>
+							<compilerArgs>
+								<arg>-h</arg>
+								<arg>src/main/cpp</arg>
+							</compilerArgs>
+							<outputDirectory>${project.build.outputDirectory}_cuda</outputDirectory>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
 
       <!-- Native library compilation -->
@@ -93,36 +114,31 @@
         <executions>
           <execution>
             <id>cmake-generate</id>
-            <phase>generate-resources</phase>
+            <phase>compile</phase>
             <goals>
               <goal>exec</goal>
             </goals>
             <configuration>
-              <executable>cmake</executable>
               <workingDirectory>${native.target.dir}</workingDirectory>
+              <executable>cmake</executable>
               <arguments>
-                <argument>-DCMAKE_BUILD_TYPE=Release</argument>
-                <argument>-S</argument>
+                <argument>-DGGML_CUDA=${ggml.cuda}</argument>
                 <argument>${project.basedir}</argument>
-                <argument>-B</argument>
-                <argument>${native.target.dir}</argument>
               </arguments>
             </configuration>
           </execution>
           <execution>
             <id>cmake-build</id>
-            <phase>generate-resources</phase>
+            <phase>compile</phase>
             <goals>
               <goal>exec</goal>
             </goals>
             <configuration>
-              <executable>cmake</executable>
               <workingDirectory>${native.target.dir}</workingDirectory>
+              <executable>cmake</executable>
               <arguments>
                 <argument>--build</argument>
                 <argument>.</argument>
-                <argument>--config</argument>
-                <argument>Release</argument>
               </arguments>
             </configuration>
           </execution>
@@ -254,6 +270,25 @@
                 </configuration>
               </execution>
             </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>cuda</id>
+      <properties>
+        <ggml.cuda>true</ggml.cuda>
+        <gpg.skip>true</gpg.skip>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-jar-plugin</artifactId>
+            <version>3.3.0</version>
+            <configuration>
+              <classifier>cuda12-linux-x86-64</classifier>
+            </configuration>
           </plugin>
         </plugins>
       </build>

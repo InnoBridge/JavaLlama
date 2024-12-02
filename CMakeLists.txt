@@ -54,7 +54,7 @@ endif()
 message(STATUS "Building for ${OS_NAME} ${OS_ARCH}")
 
 if(GGML_CUDA)
-    set(JLLAMA_DIR ${CMAKE_SOURCE_DIR}/src/main/resources_linux_cuda/io/github/innobridge/llama/client/${OS_NAME}/${OS_ARCH})
+    set(JLLAMA_DIR ${CMAKE_SOURCE_DIR}/src/main/resources/io/github/innobridge/llama/client/${OS_NAME}/${OS_ARCH})
     message(STATUS "GPU (CUDA Linux) build - Installing files to ${JLLAMA_DIR}")
 else()
     set(JLLAMA_DIR ${CMAKE_SOURCE_DIR}/src/main/resources/io/github/innobridge/llama/client/${OS_NAME}/${OS_ARCH})
@@ -66,8 +66,12 @@ file(MAKE_DIRECTORY ${JLLAMA_DIR})
 
 # include jni.h and jni_md.h
 if(NOT DEFINED JNI_INCLUDE_DIRS)
-    find_package(Java REQUIRED)
-    find_package(JNI REQUIRED)
+    # Skip Java version checks and use Java 22 directly
+    set(Java_JAVA_EXECUTABLE "/usr/lib/jvm/jdk-22/bin/java")
+    set(Java_JAVAC_EXECUTABLE "/usr/lib/jvm/jdk-22/bin/javac")
+    set(JAVA_INCLUDE_PATH "/usr/lib/jvm/jdk-22/include")
+    set(JAVA_INCLUDE_PATH2 "/usr/lib/jvm/jdk-22/include/linux")
+    set(JNI_INCLUDE_DIRS "${JAVA_INCLUDE_PATH};${JAVA_INCLUDE_PATH2}")
 endif()
 
 # Add JNI include paths
