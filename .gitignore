@@ -65,7 +65,6 @@ hs_err_pid*
 replay_pid*
 
 models/*.gguf
-src/main/cpp/de_kherud_llama_*.h
 src/main/resources_cuda_linux/
 src/main/resources/**/*.so
 src/main/resources/**/*.dylib
@@ -73,6 +72,7 @@ src/main/resources/**/*.dll
 src/main/resources/**/*.metal
 src/main/resources/**/*.gbnf
 src/test/resources/**/*.gbnf
+src/main/resources_linux_cuda/**/*.so
 
 **/*.etag
 **/*.lastModified
