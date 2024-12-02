@@ -66,12 +66,19 @@ file(MAKE_DIRECTORY ${JLLAMA_DIR})
 
 # include jni.h and jni_md.h
 if(NOT DEFINED JNI_INCLUDE_DIRS)
-    # Skip Java version checks and use Java 22 directly
-    set(Java_JAVA_EXECUTABLE "/usr/lib/jvm/jdk-22/bin/java")
-    set(Java_JAVAC_EXECUTABLE "/usr/lib/jvm/jdk-22/bin/javac")
-    set(JAVA_INCLUDE_PATH "/usr/lib/jvm/jdk-22/include")
-    set(JAVA_INCLUDE_PATH2 "/usr/lib/jvm/jdk-22/include/linux")
-    set(JNI_INCLUDE_DIRS "${JAVA_INCLUDE_PATH};${JAVA_INCLUDE_PATH2}")
+    if(APPLE)
+        set(JAVA_HOME "/Library/Java/JavaVirtualMachines/jdk-22.jdk/Contents/Home")
+        set(JAVA_INCLUDE_PATH "${JAVA_HOME}/include")
+        set(JAVA_INCLUDE_PATH2 "${JAVA_HOME}/include/darwin")
+        set(JNI_INCLUDE_DIRS "${JAVA_INCLUDE_PATH};${JAVA_INCLUDE_PATH2}")
+    else()
+        # Skip Java version checks and use Java 22 directly
+        set(Java_JAVA_EXECUTABLE "/usr/lib/jvm/jdk-22/bin/java")
+        set(Java_JAVAC_EXECUTABLE "/usr/lib/jvm/jdk-22/bin/javac")
+        set(JAVA_INCLUDE_PATH "/usr/lib/jvm/jdk-22/include")
+        set(JAVA_INCLUDE_PATH2 "/usr/lib/jvm/jdk-22/include/linux")
+        set(JNI_INCLUDE_DIRS "${JAVA_INCLUDE_PATH};${JAVA_INCLUDE_PATH2}")
+    endif()
 endif()
 
 # Add JNI include paths

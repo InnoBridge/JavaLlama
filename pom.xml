@@ -46,7 +46,8 @@
         <jna.version>5.13.0</jna.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <native.target.dir>${project.build.directory}/native-lib</native.target.dir>
-        <ggml.cuda>true</ggml.cuda>
+        <ggml.cuda>false</ggml.cuda>
+        <ggml.metal>false</ggml.metal>
 	</properties>
 
 	<dependencies>
@@ -86,7 +87,6 @@
           <source>${maven.compiler.source}</source>
           <target>${maven.compiler.target}</target>
 					<fork>true</fork>
-					<executable>/usr/lib/jvm/jdk-22/bin/javac</executable>
 					<compilerVersion>22</compilerVersion>
 				</configuration>
 				<executions>
@@ -221,6 +221,79 @@
 	</build>
 
   <profiles>
+    <profile>
+      <id>linux-cuda</id>
+      <activation>
+        <os>
+          <family>unix</family>
+          <name>Linux</name>
+        </os>
+      </activation>
+      <properties>
+        <ggml.cuda>true</ggml.cuda>
+        <ggml.metal>false</ggml.metal>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-jar-plugin</artifactId>
+            <version>3.3.0</version>
+            <executions>
+              <execution>
+                <id>cuda-jar</id>
+                <phase>package</phase>
+                <goals>
+                  <goal>jar</goal>
+                </goals>
+                <configuration>
+                  <classifier>cuda12-linux-x86-64</classifier>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>linux-cpu</id>
+      <activation>
+        <os>
+          <family>unix</family>
+          <name>Linux</name>
+        </os>
+      </activation>
+      <properties>
+        <ggml.cuda>false</ggml.cuda>
+        <ggml.metal>false</ggml.metal>
+      </properties>
+    </profile>
+    <profile>
+      <id>mac-arm</id>
+      <activation>
+        <os>
+          <family>mac</family>
+          <arch>aarch64</arch>
+        </os>
+      </activation>
+      <properties>
+        <ggml.cuda>false</ggml.cuda>
+        <ggml.metal>true</ggml.metal>
+      </properties>
+    </profile>
+    <profile>
+      <id>mac-intel</id>
+      <activation>
+        <os>
+          <family>mac</family>
+          <arch>x86_64</arch>
+        </os>
+      </activation>
+      <properties>
+        <ggml.cuda>false</ggml.cuda>
+        <ggml.metal>false</ggml.metal>
+      </properties>
+    </profile>
     <profile>
       <id>release</id>
       <build>
