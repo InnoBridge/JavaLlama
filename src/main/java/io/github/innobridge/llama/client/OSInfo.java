@@ -225,7 +225,7 @@ class OSInfo {
   }
 
   static String getArchName() {
-    String override = System.getProperty("de.kherud.llama.osinfo.architecture");
+    String override = System.getProperty("io.github.innobridge.llama.osinfo.architecture");
     if (override != null) {
       return override;
     }

@@ -31,8 +31,8 @@ import java.util.stream.Stream;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Set the system properties, de.kherud.llama.lib.path,
- * de.kherud.llama.lib.name, appropriately so that the
+ * Set the system properties, io.github.innobridge.llama.lib.path,
+ * io.github.innobridge.llama.lib.name, appropriately so that the
  * library can find *.dll, *.dylib and *.so files, according to the current OS
  * (win, linux, mac).
  *
@@ -102,7 +102,7 @@ class LlamaLoader {
     List<String> triedPaths = new LinkedList<>();
 
     String nativeLibName = System.mapLibraryName(name);
-    String nativeLibPath = System.getProperty("de.kherud.llama.lib.path");
+    String nativeLibPath = System.getProperty("io.github.innobridge.llama.lib.path");
     if (nativeLibPath != null) {
       Path path = Paths.get(nativeLibPath, nativeLibName);
       if (loadNativeLibrary(path)) {
@@ -257,7 +257,7 @@ class LlamaLoader {
   }
 
   private static File getTempDir() {
-    return new File(System.getProperty("de.kherud.llama.tmpdir", System.getProperty("java.io.tmpdir")));
+    return new File(System.getProperty("io.github.innobridge.llama.tmpdir", System.getProperty("java.io.tmpdir")));
   }
 
   private static String getNativeResourcePath() {
