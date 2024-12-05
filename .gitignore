@@ -80,3 +80,16 @@ src/main/cpp/llama.cpp/
 
 # JNI Generated Headers
 **/io_github_innobridge_llama_client_*.h
+
+# Generated libraries and includes
+/lib/
+/include/
+
+# Build files
+CMakeFiles/
+_deps/
+cmake_install.cmake
+compile_commands.json
+
+# MacOS specific
+.DS_Store
