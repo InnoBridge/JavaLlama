@@ -8,27 +8,34 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 option(LLAMA_VERBOSE "llama: verbose output" OFF)
 
+# Force enable CUDA
+set(GGML_CUDA ON CACHE BOOL "Enable CUDA support" FORCE)
+
 # CUDA configuration
 if(GGML_CUDA)
     find_package(CUDAToolkit REQUIRED)
     enable_language(CUDA)
     
-    # Set CUDA architecture for RTX 4070 (Ada Lovelace)
-    set(CMAKE_CUDA_ARCHITECTURES "89")
+    # Set CUDA architecture for RTX 4070 Ti (Ada Lovelace)
+    # Using compute_89 for virtual architecture and sm_89 for real architecture
+    set(CMAKE_CUDA_ARCHITECTURES "89-real")
     
-    # Add CUDA compilation flags
+    # Enhanced CUDA optimization flags
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 --use_fast_math")
     
-    # Add CUDA definitions
+    # Add CUDA definitions with enhanced settings
     add_definitions(-DGGML_USE_CUDA=1)
     add_definitions(-DGGML_CUDA_DMMV=1)
     add_definitions(-DGGML_CUDA_FORCE_DMMV=1)
+    add_definitions(-DGGML_USE_CUBLAS=1)
+    add_definitions(-DGGML_CUDA_FORCE_CUBLAS=1)
+    add_definitions(-DGGML_CUDA_TENSOR_SPLITS=1)
     
     # Include CUDA directories
     include_directories(${CUDAToolkit_INCLUDE_DIRS})
     
     # Link CUDA libraries
-    link_libraries(CUDA::cudart CUDA::cublas)
+    link_libraries(CUDA::cudart CUDA::cublas CUDA::cublasLt)
 endif()
 
 #################### json ####################
@@ -127,10 +134,12 @@ if(GGML_CUDA)
         GGML_USE_CUDA=1
         GGML_CUDA_DMMV=1
         GGML_CUDA_FORCE_DMMV=1
+        GGML_CUDA_TENSOR_SPLITS=1
     )
     target_link_libraries(jllama PRIVATE 
         CUDA::cudart
         CUDA::cublas
+        CUDA::cublasLt
     )
 endif()
 

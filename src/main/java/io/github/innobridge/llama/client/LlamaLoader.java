@@ -100,54 +100,71 @@ class LlamaLoader {
 
   private static void loadNativeLibrary(String name) {
     List<String> triedPaths = new LinkedList<>();
-
     String nativeLibName = System.mapLibraryName(name);
+
+    // 1. First try loading from explicitly configured path (for CUDA libraries)
     String nativeLibPath = System.getProperty("io.github.innobridge.llama.lib.path");
+    System.out.println("Configured library path: " + nativeLibPath);
+    
     if (nativeLibPath != null) {
       Path path = Paths.get(nativeLibPath, nativeLibName);
-      if (loadNativeLibrary(path)) {
-        return;
+      System.out.println("Attempting to load " + nativeLibName + " from: " + path);
+      if (Files.exists(path)) {
+        System.out.println("Found library at: " + path);
+        if (loadNativeLibrary(path)) {
+          System.out.println("Successfully loaded library from: " + path);
+          return;
+        } else {
+          System.out.println("Failed to load library from: " + path);
+        }
       } else {
-        triedPaths.add(nativeLibPath);
+        System.out.println("Library not found at: " + path);
       }
+      triedPaths.add(nativeLibPath);
     }
 
-    if (OSInfo.isAndroid()) {
-      try {
-        // loadLibrary can load directly from packed apk file automatically
-        // if java-llama.cpp is added as code source
-        System.loadLibrary(name);
-        return;
-      } catch (UnsatisfiedLinkError e) {
-        triedPaths.add("Directly from .apk/lib");
-      }
-    }
-
-    // Try to load the library from java.library.path
+    // 2. Try loading from java.library.path
     String javaLibraryPath = System.getProperty("java.library.path", "");
+    System.out.println("Checking java.library.path locations: " + javaLibraryPath);
     for (String ldPath : javaLibraryPath.split(File.pathSeparator)) {
       if (ldPath.isEmpty()) {
         continue;
       }
       Path path = Paths.get(ldPath, nativeLibName);
+      System.out.println("Attempting to load from: " + path);
       if (loadNativeLibrary(path)) {
+        System.out.println("Successfully loaded library from: " + path);
         return;
-      } else {
-        triedPaths.add(ldPath);
+      }
+      triedPaths.add(ldPath);
+    }
+
+    // 3. Try Android-specific loading if on Android
+    if (OSInfo.isAndroid()) {
+      try {
+        System.out.println("Attempting Android-specific loading for: " + name);
+        System.loadLibrary(name);
+        System.out.println("Successfully loaded library via Android path");
+        return;
+      } catch (UnsatisfiedLinkError e) {
+        System.out.println("Failed to load via Android path: " + e.getMessage());
+        triedPaths.add("Directly from .apk/lib");
       }
     }
 
-    // As a last resort try load the os-dependent library from the jar file
+    // 4. Last resort: try loading from JAR resources
     nativeLibPath = getNativeResourcePath();
+    System.out.println("Attempting to load from JAR resources: " + nativeLibPath);
     if (hasNativeLib(nativeLibPath, nativeLibName)) {
-      // temporary library folder
       String tempFolder = getTempDir().getAbsolutePath();
-      // Try extracting the library from jar
+      System.out.println("Extracting to temp folder: " + tempFolder);
       if (extractAndLoadLibraryFile(nativeLibPath, nativeLibName, tempFolder)) {
+        System.out.println("Successfully loaded library from JAR resources");
         return;
-      } else {
-        triedPaths.add(nativeLibPath);
       }
+      triedPaths.add(nativeLibPath);
+    } else {
+      System.out.println("Library not found in JAR resources: " + nativeLibPath + "/" + nativeLibName);
     }
 
     throw new UnsatisfiedLinkError(
@@ -183,7 +200,7 @@ class LlamaLoader {
   @Nullable
   private static Path extractFile(String sourceDirectory, String fileName, String targetDirectory, boolean addUuid) {
     String nativeLibraryFilePath = sourceDirectory + "/" + fileName;
-
+    System.out.println("nativeLibraryFilePath '" + nativeLibraryFilePath);
     Path extractedFilePath = Paths.get(targetDirectory, fileName);
 
     try {

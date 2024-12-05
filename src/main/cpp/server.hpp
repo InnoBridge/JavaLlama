@@ -2626,17 +2626,20 @@ static void server_params_parse(json jparams, gpt_params &params) {
       json_value(jparams, "chat_template", default_params.chat_template);
 
   if (jparams.contains("n_gpu_layers")) {
-    if (llama_supports_gpu_offload()) {
+    if (true) {
       params.n_gpu_layers =
           json_value(jparams, "n_gpu_layers", default_params.n_gpu_layers);
       params.n_gpu_layers_draft = json_value(jparams, "n_gpu_layers_draft",
                                              default_params.n_gpu_layers_draft);
     } else {
+      LOG_INFO("BEFORE GPU CHECK", {{"checking_gpu", true}});
       LOG_WARNING(
-          "Not compiled with GPU offload support, --n-gpu-layers option will "
+          "hello world Not compiled with GPU offload support, --n-gpu-layers option will "
           "be ignored. "
           "See main README.md for information on enabling GPU BLAS support",
-          {{"n_gpu_layers", params.n_gpu_layers}});
+          {{"n_gpu_layers", params.n_gpu_layers},
+           {"jparams", jparams}});
+      LOG_INFO("AFTER GPU CHECK", {{"checked_gpu", true}});
     }
   }
 
