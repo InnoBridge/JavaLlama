@@ -127,7 +127,24 @@ public class LlamaController {
     return emitter;
   }
 }
+
+## Building from Source
+
+### GPU Build (CUDA)
+
+To build with GPU support:
+
+1. Build CUDA libraries:
+```bash
+sh .github/build_cuda_linux.sh
 ```
+
+2. Build the project:
+```bash
+./mvnw clean install -Dgpg.skip
+```
+
+This will compile the project with CUDA support for GPU acceleration.
 
 ### Running the application
 ```

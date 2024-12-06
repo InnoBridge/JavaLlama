@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>io.github.innobridge</groupId>
 	<artifactId>llama</artifactId>
-	<version>0.0.5-SNAPSHOT-11</version>
+	<version>0.0.5-SNAPSHOT-12</version>
   <name>${project.groupId}:${project.artifactId}</name>
 	<description>Java bindings for llama.cpp</description>
 	<url>https://github.com/innobridge/JavaLlama</url>
