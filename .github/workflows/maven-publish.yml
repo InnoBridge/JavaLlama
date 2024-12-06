@@ -17,12 +17,15 @@ jobs:
           - platform: Linux
             os: ubuntu-latest
             arch: x86_64
+            cuda: false
           - platform: Linux
             os: ubuntu-latest
             arch: aarch64
+            cuda: false
           - platform: Mac
             os: macos-latest
             arch: aarch64
+            cuda: false
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +55,8 @@ jobs:
             -DLLAMA_BUILD_EXAMPLES=OFF \
             -DLLAMA_BUILD_TESTS=OFF \
             -DLLAMA_METAL=OFF \
-            -DLLAMA_NATIVE=OFF
+            -DLLAMA_NATIVE=OFF \
+            -DLLAMA_CUBLAS=${{ matrix.cuda }}
           cmake --build . --config Release --verbose
 
       - name: Build Native Library (Linux ARM64)
@@ -114,7 +118,7 @@ jobs:
       - name: Copy Native Libraries
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
-            TARGET_DIR="src/main/resources/io/github/innobridge/llama/client/Linux/${{ matrix.arch }}"
+            TARGET_DIR="src/main/resources/io/github/innobridge/llama/client/Linux/${{ matrix.arch }}${{ matrix.cuda && '-cuda' || '' }}"
             mkdir -p "$TARGET_DIR"
             # Find and copy Linux libraries
             for lib in libjllama.so libllama.so libggml.so; do
@@ -167,13 +171,59 @@ jobs:
       - name: Upload Native Library
         uses: actions/upload-artifact@v3
         with:
-          name: native-${{ matrix.platform }}-${{ matrix.arch }}
+          name: native-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.cuda && '-cuda' || '' }}
           path: |
-            src/main/resources/io/github/innobridge/llama/client/${{ matrix.platform }}/${{ matrix.arch }}
+            src/main/resources/io/github/innobridge/llama/client/${{ matrix.platform }}/${{ matrix.arch }}${{ matrix.cuda && '-cuda' || '' }}
             src/main/resources/io/github/innobridge/llama/client/checksums.txt
 
+  build-linux-cuda:
+    name: Build Linux x86-64 CUDA12
+    runs-on: ubuntu-latest
+    container: 
+      image: nvidia/cuda:12.1.0-devel-ubuntu22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      
+      - name: Install dependencies
+        run: |
+          apt-get update && apt-get install -y \
+            build-essential \
+            cmake \
+            openjdk-22-jdk \
+            git
+
+      - name: Build CUDA libraries
+        shell: bash
+        run: |
+          mkdir -p build_cuda && cd build_cuda
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLAMA_STATIC=ON \
+            -DLLAMA_BLAS=ON \
+            -DLLAMA_BUILD_EXAMPLES=OFF \
+            -DLLAMA_BUILD_TESTS=OFF \
+            -DLLAMA_METAL=OFF \
+            -DLLAMA_NATIVE=OFF \
+            -DLLAMA_CUBLAS=ON \
+            -DCMAKE_CUDA_ARCHITECTURES="60;70;75;80;86;89;90"
+          cmake --build . --config Release --verbose
+          
+          # Create directory structure for artifacts
+          mkdir -p ${{ github.workspace }}/src/main/resources/io/github/innobridge/llama/client/Linux/x86_64-cuda
+          cp build_cuda/libjllama.so build_cuda/libllama.so build_cuda/libggml.so \
+            ${{ github.workspace }}/src/main/resources/io/github/innobridge/llama/client/Linux/x86_64-cuda/
+
+      - name: Upload CUDA artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-Linux-x86_64-cuda
+          path: ${{ github.workspace }}/src/main/resources/io/github/innobridge/llama/client/Linux/x86_64-cuda
+
   publish:
-    needs: build-natives
+    needs: [build-natives, build-linux-cuda]
     runs-on: ubuntu-latest
     steps:
       - name: Step 1 - Checkout code
@@ -212,6 +262,7 @@ jobs:
           
           # Copy all platform libraries to resources
           cp -r native-libs/native-Linux-x86_64/* src/main/resources/io/github/innobridge/llama/client/
+          cp -r native-libs/native-Linux-x86_64-cuda/* src/main/resources/io/github/innobridge/llama/client/
           cp -r native-libs/native-Linux-aarch64/* src/main/resources/io/github/innobridge/llama/client/
           cp -r native-libs/native-Mac-aarch64/* src/main/resources/io/github/innobridge/llama/client/
           
